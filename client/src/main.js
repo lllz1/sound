@@ -80,6 +80,9 @@
       let projectionRaf = null;
       let projectionLocation = null;
       let projectionHeading = 0;
+      let projectionFov = 90;
+      let projectionPitch = 0;
+      const projectionCameraHeight = 1.7;
       let projectionUseOrientation = true;
       let projectionHits = [];
       let projectionPhotoUrl = null;
@@ -143,7 +146,6 @@
         });
       }
 
-      const PROJECTION_FOV = 90;
       const PROJECTION_MAX_DISTANCE = 5000;
 
       function normalizeDegrees(value) {
@@ -192,11 +194,42 @@
         projectionHits = [];
         if (!projectionLocation) return;
 
+        const fovRad = projectionFov * Math.PI / 180;
+        const focal = width / (2 * Math.tan(fovRad / 2));
+        const horizon = Math.max(
+          height * 0.25,
+          Math.min(height * 0.75, height * 0.5 + Math.tan(projectionPitch * Math.PI / 180) * focal * 0.35),
+        );
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(126, 240, 210, 0.075)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, horizon);
+        ctx.lineTo(width, horizon);
+        ctx.stroke();
+        for (let index = -6; index <= 6; index += 1) {
+          ctx.beginPath();
+          ctx.moveTo(width / 2 + index * width * 0.018, horizon);
+          ctx.lineTo(width / 2 + index * width * 0.13, height);
+          ctx.stroke();
+        }
+        for (let index = 1; index <= 5; index += 1) {
+          const ratio = index / 6;
+          const y = horizon + (height - horizon) * ratio * ratio;
+          ctx.globalAlpha = 0.35 + ratio * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(width * 0.06, y);
+          ctx.lineTo(width * 0.94, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
         const candidates = allTraces.map((trace) => {
           const distance = distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
           const bearing = bearingDegrees(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
           return { trace, distance, relative: normalizeDegrees(bearing - projectionHeading) };
-        }).filter((item) => item.distance <= PROJECTION_MAX_DISTANCE && Math.abs(item.relative) <= PROJECTION_FOV / 2);
+        }).filter((item) => item.distance <= PROJECTION_MAX_DISTANCE && Math.abs(item.relative) <= projectionFov / 2);
 
         $('projectionNearby').textContent = `附近 ${candidates.length} 段声音`;
         candidates.sort((a, b) => b.distance - a.distance);
@@ -213,13 +246,33 @@
         }
 
         for (const item of candidates) {
-          const x = width / 2 + (item.relative / (PROJECTION_FOV / 2)) * (width / 2);
+          const relativeRad = item.relative * Math.PI / 180;
+          const x = width / 2 + focal * Math.tan(relativeRad);
+          if (x < -80 || x > width + 80) continue;
+          const forward = Math.max(1, item.distance * Math.cos(relativeRad));
+          const groundY = Math.min(height * 1.08, horizon + (projectionCameraHeight * focal) / forward);
+          const scale = Math.max(0.3, Math.min(1.35, 140 / (item.distance + 70)));
+          const nodeY = Math.min(height * 0.94, groundY - 34 * scale);
           const depth = Math.min(1, item.distance / PROJECTION_MAX_DISTANCE);
-          const y = height * 0.72 - depth * height * 0.2;
-          const scale = 1.1 - depth * 0.42;
-          const radius = 20 * scale;
+          const radius = 18 * scale;
           ctx.save();
-          ctx.translate(x, y);
+          ctx.globalAlpha = 0.45 + (1 - depth) * 0.55;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.34)';
+          ctx.beginPath();
+          ctx.ellipse(x, groundY, 28 * scale, 7 * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          const beacon = ctx.createLinearGradient(x, groundY, x, nodeY);
+          beacon.addColorStop(0, 'rgba(126, 240, 210, 0.04)');
+          beacon.addColorStop(0.65, 'rgba(126, 240, 210, 0.28)');
+          beacon.addColorStop(1, 'rgba(255, 209, 102, 0.7)');
+          ctx.strokeStyle = beacon;
+          ctx.lineWidth = Math.max(1, 2 * scale);
+          ctx.beginPath();
+          ctx.moveTo(x, groundY);
+          ctx.lineTo(x, nodeY);
+          ctx.stroke();
+          ctx.save();
+          ctx.translate(x, nodeY);
           ctx.strokeStyle = 'rgba(126, 240, 210, 0.28)';
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -243,16 +296,19 @@
           }
           ctx.fillStyle = '#f1f6fb';
           ctx.font = '600 12px "Segoe UI", "Microsoft YaHei", sans-serif';
-          ctx.textAlign = 'left';
-          ctx.fillText(item.trace.title, radius + 12, 2);
+          const labelRight = x < width * 0.7;
+          ctx.textAlign = labelRight ? 'left' : 'right';
+          const labelX = labelRight ? radius + 12 : -radius - 12;
+          ctx.fillText(item.trace.title, labelX, 2);
           ctx.fillStyle = 'rgba(139, 154, 176, 0.9)';
           ctx.font = '9px "Segoe UI", "Microsoft YaHei", sans-serif';
-          ctx.fillText(`${Math.round(item.distance)} m · ${item.trace.meta || ''}`.slice(0, 34), radius + 12, 17);
+          ctx.fillText(`${Math.round(item.distance)} m · ${item.trace.meta || ''}`.slice(0, 34), labelX, 17);
           ctx.restore();
-          projectionHits.push({ trace: item.trace, x, y, radius: radius + 22 });
+          ctx.restore();
+          projectionHits.push({ trace: item.trace, x, y: nodeY, radius: radius + 22 });
         }
         const nearby = candidates.length;
-        $('projectionStatus').textContent = `现场投影 · 朝向 ${Math.round(projectionHeading)}° · ${nearby} 段声音`;
+        $('projectionStatus').textContent = `现场投影 · 朝向 ${Math.round(projectionHeading)}° · 视野 ${projectionFov}° · ${nearby} 段声音`;
       }
 
       function projectionLoop() {
@@ -329,6 +385,10 @@
         projectionLocation = map ? fromMapPoint(map.getCenter()) : { lat: 31.2304, lng: 121.4737 };
         projectionUseOrientation = true;
         setProjectionHeading(0);
+        $('projectionFov').value = String(projectionFov);
+        $('projectionFovLabel').textContent = `${projectionFov}°`;
+        $('projectionPitch').value = String(projectionPitch);
+        $('projectionPitchLabel').textContent = `${projectionPitch}°`;
         $('projectionModal').hidden = false;
         $('projectionPlaceholder').hidden = false;
         $('scenePhoto').style.display = 'none';
@@ -954,6 +1014,16 @@
       $('projectionHeading').addEventListener('input', (event) => {
         projectionUseOrientation = false;
         setProjectionHeading(event.target.value);
+        renderProjection();
+      });
+      $('projectionFov').addEventListener('input', (event) => {
+        projectionFov = Number(event.target.value);
+        $('projectionFovLabel').textContent = `${projectionFov}°`;
+        renderProjection();
+      });
+      $('projectionPitch').addEventListener('input', (event) => {
+        projectionPitch = Number(event.target.value);
+        $('projectionPitchLabel').textContent = `${projectionPitch}°`;
         renderProjection();
       });
       $('projectionStage').addEventListener('click', (event) => {
