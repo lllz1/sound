@@ -76,6 +76,13 @@
       let editingTrace = null;
       let pendingDelete = null;
       let suppressMapClickUntil = 0;
+      let projectionStream = null;
+      let projectionRaf = null;
+      let projectionLocation = null;
+      let projectionHeading = 0;
+      let projectionUseOrientation = true;
+      let projectionHits = [];
+      let projectionPhotoUrl = null;
 
       async function loadTraces() {
         const response = await fetch('/api/traces');
@@ -134,6 +141,212 @@
           iconSize: [34, 34],
           iconAnchor: [17, 17],
         });
+      }
+
+      const PROJECTION_FOV = 90;
+      const PROJECTION_MAX_DISTANCE = 5000;
+
+      function normalizeDegrees(value) {
+        return ((value + 180) % 360 + 360) % 360 - 180;
+      }
+
+      function distanceMeters(lat1, lng1, lat2, lng2) {
+        const radius = 6371000;
+        const toRad = (value) => value * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        return 2 * radius * Math.asin(Math.sqrt(a));
+      }
+
+      function bearingDegrees(lat1, lng1, lat2, lng2) {
+        const toRad = (value) => value * Math.PI / 180;
+        const toDeg = (value) => value * 180 / Math.PI;
+        const dLng = toRad(lng2 - lng1);
+        const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+      }
+
+      function setProjectionHeading(value) {
+        projectionHeading = ((Number(value) % 360) + 360) % 360;
+        $('projectionHeading').value = String(Math.round(projectionHeading));
+        $('projectionHeadingLabel').textContent = `${Math.round(projectionHeading)}°`;
+      }
+
+      function renderProjection() {
+        const stage = $('projectionStage');
+        const canvas = $('projectionCanvas');
+        if (!stage || !canvas) return;
+        const width = stage.clientWidth;
+        const height = stage.clientHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        projectionHits = [];
+        if (!projectionLocation) return;
+
+        const candidates = allTraces.map((trace) => {
+          const distance = distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
+          const bearing = bearingDegrees(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
+          return { trace, distance, relative: normalizeDegrees(bearing - projectionHeading) };
+        }).filter((item) => item.distance <= PROJECTION_MAX_DISTANCE && Math.abs(item.relative) <= PROJECTION_FOV / 2);
+
+        $('projectionNearby').textContent = `附近 ${candidates.length} 段声音`;
+        candidates.sort((a, b) => b.distance - a.distance);
+
+        if (!candidates.length) {
+          ctx.fillStyle = 'rgba(241, 246, 251, 0.6)';
+          ctx.font = '600 13px "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('这个方向暂时没有声音节点', width / 2, height * 0.32);
+          ctx.font = '10px "Segoe UI", sans-serif';
+          ctx.fillStyle = 'rgba(139, 154, 176, 0.7)';
+          ctx.fillText('回到地图添加一段声音，或转动朝向试试', width / 2, height * 0.32 + 20);
+          return;
+        }
+
+        for (const item of candidates) {
+          const x = width / 2 + (item.relative / (PROJECTION_FOV / 2)) * (width / 2);
+          const depth = Math.min(1, item.distance / PROJECTION_MAX_DISTANCE);
+          const y = height * 0.72 - depth * height * 0.2;
+          const scale = 1.1 - depth * 0.42;
+          const radius = 20 * scale;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.strokeStyle = 'rgba(126, 240, 210, 0.28)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, radius + 9, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(126, 240, 210, 0.16)';
+          ctx.beginPath();
+          ctx.arc(0, 0, radius + 17, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255, 209, 102, 0.95)';
+          ctx.shadowColor = '#ffd166';
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.arc(0, 0, 6 * scale + 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(126, 240, 210, 0.8)';
+          for (let index = 0; index < 4; index += 1) {
+            const barHeight = (7 + (item.trace.peaks?.[index] || 0.4) * 13) * scale;
+            ctx.fillRect(-25 * scale + index * 5 * scale, -barHeight / 2, 2, barHeight);
+          }
+          ctx.fillStyle = '#f1f6fb';
+          ctx.font = '600 12px "Segoe UI", "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(item.trace.title, radius + 12, 2);
+          ctx.fillStyle = 'rgba(139, 154, 176, 0.9)';
+          ctx.font = '9px "Segoe UI", "Microsoft YaHei", sans-serif';
+          ctx.fillText(`${Math.round(item.distance)} m · ${item.trace.meta || ''}`.slice(0, 34), radius + 12, 17);
+          ctx.restore();
+          projectionHits.push({ trace: item.trace, x, y, radius: radius + 22 });
+        }
+        const nearby = candidates.length;
+        $('projectionStatus').textContent = `现场投影 · 朝向 ${Math.round(projectionHeading)}° · ${nearby} 段声音`;
+      }
+
+      function projectionLoop() {
+        if ($('projectionModal').hidden) return;
+        renderProjection();
+        projectionRaf = requestAnimationFrame(projectionLoop);
+      }
+
+      function stopProjectionCamera() {
+        if (projectionStream) projectionStream.getTracks().forEach((track) => track.stop());
+        projectionStream = null;
+        $('sceneVideo').srcObject = null;
+        $('sceneVideo').style.display = 'none';
+        $('projectionCamera').textContent = '开启相机';
+        if (!projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
+      }
+
+      async function startProjectionCamera() {
+        if (projectionStream) {
+          stopProjectionCamera();
+          $('projectionStatus').textContent = '相机已关闭，仍可使用照片投影';
+          return;
+        }
+        if (!navigator.mediaDevices?.getUserMedia) {
+          showToast('当前浏览器不支持摄像头，请上传现场照片');
+          return;
+        }
+        try {
+          projectionStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          });
+          const video = $('sceneVideo');
+          video.srcObject = projectionStream;
+          video.style.display = 'block';
+          $('scenePhoto').style.display = 'none';
+          $('projectionPlaceholder').hidden = true;
+          $('projectionCamera').textContent = '关闭相机';
+          await video.play();
+          $('projectionStatus').textContent = '相机场景 · 正在寻找附近声音';
+        } catch {
+          projectionStream = null;
+          showToast('无法开启摄像头，可以上传一张现场照片');
+        }
+      }
+
+      function useProjectionPhoto(file) {
+        if (!file) return;
+        stopProjectionCamera();
+        if (projectionPhotoUrl) URL.revokeObjectURL(projectionPhotoUrl);
+        projectionPhotoUrl = URL.createObjectURL(file);
+        $('scenePhoto').src = projectionPhotoUrl;
+        $('scenePhoto').style.display = 'block';
+        $('sceneVideo').style.display = 'none';
+        $('projectionPlaceholder').hidden = true;
+        $('projectionStatus').textContent = '照片场景 · 拖动朝向查看声音方向';
+      }
+
+      function locateProjection() {
+        if (!navigator.geolocation) return showToast('当前浏览器不支持定位');
+        $('projectionStatus').textContent = '正在获取当前位置…';
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            projectionLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+            $('projectionStatus').textContent = `已定位 · 精度约 ${Math.round(position.coords.accuracy)} 米`;
+            renderProjection();
+          },
+          () => showToast('定位失败，可以在设置里允许位置权限'),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        );
+      }
+
+      function openProjection() {
+        projectionLocation = map ? fromMapPoint(map.getCenter()) : { lat: 31.2304, lng: 121.4737 };
+        projectionUseOrientation = true;
+        setProjectionHeading(0);
+        $('projectionModal').hidden = false;
+        $('projectionPlaceholder').hidden = false;
+        $('scenePhoto').style.display = 'none';
+        $('sceneVideo').style.display = 'none';
+        $('projectionStatus').textContent = '使用地图中心作为观察点，可重新定位';
+        $('projectionNearby').textContent = '附近 0 段声音';
+        projectionLoop();
+      }
+
+      function closeProjection() {
+        stopProjectionCamera();
+        if (projectionRaf) cancelAnimationFrame(projectionRaf);
+        projectionRaf = null;
+        projectionHits = [];
+        if (projectionPhotoUrl) URL.revokeObjectURL(projectionPhotoUrl);
+        projectionPhotoUrl = null;
+        $('scenePhoto').removeAttribute('src');
+        $('projectionModal').hidden = true;
       }
 
       function locateUser() {
@@ -732,6 +945,27 @@
         selectTrace(allTraces[0]);
         playSeed(allTraces[0]);
       });
+      $('projectBtn').addEventListener('click', openProjection);
+      $('closeProjection').addEventListener('click', closeProjection);
+      $('projectionCamera').addEventListener('click', startProjectionCamera);
+      $('projectionLocate').addEventListener('click', locateProjection);
+      $('projectionUpload').addEventListener('click', () => $('projectionPhotoInput').click());
+      $('projectionPhotoInput').addEventListener('change', (event) => useProjectionPhoto(event.target.files?.[0]));
+      $('projectionHeading').addEventListener('input', (event) => {
+        projectionUseOrientation = false;
+        setProjectionHeading(event.target.value);
+        renderProjection();
+      });
+      $('projectionStage').addEventListener('click', (event) => {
+        const rect = $('projectionStage').getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const hit = projectionHits.find((item) => Math.hypot(item.x - x, item.y - y) <= item.radius);
+        if (hit) {
+          selectTrace(hit.trace);
+          togglePlay();
+        }
+      });
       $('playBtn').addEventListener('click', togglePlay);
       $('cardBtn').addEventListener('click', () => current && exportCard(current));
       $('editBtn').addEventListener('click', editCurrent);
@@ -767,10 +1001,20 @@
         $('editModal').hidden = true;
         $('deleteModal').hidden = true;
         $('searchResults').hidden = true;
+        closeProjection();
         editingTrace = null;
         pendingDelete = null;
         stopPlayback();
       });
+
+      const handleProjectionOrientation = (event) => {
+        if (!$('projectionModal').hidden && projectionUseOrientation && event.alpha != null) {
+          setProjectionHeading((360 - event.alpha + 360) % 360);
+          renderProjection();
+        }
+      };
+      window.addEventListener('deviceorientationabsolute', handleProjectionOrientation, true);
+      window.addEventListener('deviceorientation', handleProjectionOrientation, true);
 
       async function bootstrap() {
         renderWaveform(makePeaks('empty'));

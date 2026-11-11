@@ -372,6 +372,29 @@
       .help-card strong { color: var(--text); }
       .toast { position: fixed; z-index: 200; bottom: 24px; left: 50%; padding: 9px 14px; border: 1px solid rgba(126, 240, 210, 0.24); border-radius: 999px; color: var(--text); background: rgba(10, 20, 27, 0.94); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); font-size: 10px; transform: translateX(-50%); animation: toast-in 260ms ease both; }
 
+      .projection-modal { position: fixed; z-index: 90; inset: 0; display: flex; flex-direction: column; background: #04080e; }
+      .projection-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 28px; border-bottom: 1px solid var(--line); background: rgba(7, 11, 18, 0.9); }
+      .projection-header h2 { margin: 7px 0 0; font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif; font-size: 28px; font-weight: 500; letter-spacing: -0.04em; }
+      .projection-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: radial-gradient(circle at 50% 45%, rgba(38, 93, 105, 0.22), transparent 45%), #050a11; }
+      #sceneVideo, #scenePhoto, #projectionCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+      #sceneVideo { display: none; object-fit: cover; }
+      #scenePhoto { display: none; object-fit: contain; background: #050a11; }
+      #projectionCanvas { z-index: 2; pointer-events: none; }
+      .projection-placeholder { position: absolute; z-index: 3; top: 50%; left: 50%; display: flex; align-items: center; flex-direction: column; gap: 9px; width: min(90%, 420px); padding: 28px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 20px; background: rgba(7, 13, 22, 0.78); box-shadow: var(--shadow); text-align: center; transform: translate(-50%, -50%); backdrop-filter: blur(14px); }
+      .projection-placeholder strong { color: var(--text); font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif; font-size: 22px; font-weight: 500; }
+      .projection-placeholder > span:last-child { color: var(--muted-2); font-size: 10px; }
+      .projection-orbit { position: relative; width: 72px; height: 72px; margin-bottom: 6px; border: 1px solid rgba(126, 240, 210, 0.35); border-radius: 50%; box-shadow: 0 0 38px rgba(126, 240, 210, 0.16); }
+      .projection-orbit::before, .projection-orbit::after { position: absolute; top: 50%; left: 50%; border-radius: 50%; content: ""; transform: translate(-50%, -50%); }
+      .projection-orbit::before { width: 10px; height: 10px; background: var(--mint); box-shadow: 0 0 24px var(--mint); }
+      .projection-orbit::after { width: 104px; height: 1px; border-radius: 0; background: rgba(126, 240, 210, 0.2); }
+      .projection-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 28px; border-top: 1px solid var(--line); background: rgba(7, 11, 18, 0.92); }
+      .projection-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 9px; }
+      .projection-status #projectionNearby { margin-left: 8px; color: var(--muted-2); }
+      .projection-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+      .heading-control { display: flex; align-items: center; gap: 7px; color: var(--muted-2); font-size: 9px; }
+      .heading-control input { width: 100px; accent-color: var(--mint); }
+      .heading-control strong { min-width: 32px; color: var(--mint); font-family: "Cascadia Code", Consolas, monospace; font-size: 9px; font-weight: 400; }
+
       @keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       @keyframes marker-pulse { 0% { transform: scale(0.7); opacity: 0.8; } 80%, 100% { transform: scale(1.6); opacity: 0; } }
       @keyframes wave-breathe { from { transform: scaleY(0.72); opacity: 0.6; } to { transform: scaleY(1.08); opacity: 1; } }
@@ -383,6 +406,8 @@
         .map-panel { min-height: 58vh; }
         .sidebar { overflow: visible; }
         .hero-panel h2 { font-size: 28px; }
+        .projection-footer { align-items: flex-start; flex-direction: column; }
+        .projection-controls { justify-content: flex-start; }
       }
       @media (max-width: 620px) {
         .topbar { height: 62px; padding: 0 14px; }
@@ -395,4 +420,10 @@
         .map-tools { top: 14px; right: 14px; width: calc(100% - 28px); }
         .app-footer { flex-wrap: wrap; padding: 8px 14px 14px; }
         .record-card, .help-card { padding: 22px; }
+        .projection-header { padding: 16px 14px; }
+        .projection-header h2 { font-size: 23px; }
+        .projection-footer { padding: 12px 14px; }
+        .projection-controls { width: 100%; }
+        .heading-control { width: 100%; }
+        .heading-control input { flex: 1; width: auto; }
       }

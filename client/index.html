@@ -59,6 +59,7 @@
             <div class="hero-actions">
               <button class="primary-btn" id="recordBtn">开始录音 <span aria-hidden="true">↗</span></button>
               <button class="secondary-btn" id="demoBtn">听一段种子声音</button>
+              <button class="secondary-btn" id="projectBtn">现场投影</button>
             </div>
           </section>
 
@@ -150,6 +151,40 @@
         <p class="record-location" id="deleteName"></p>
         <p class="record-note">删除后会从地图和服务端记录中移除。种子节点和录音都可以删除。</p>
         <div class="record-actions"><button class="secondary-btn" id="cancelDelete">取消</button><button class="primary-btn" id="confirmDelete">确认删除</button></div>
+      </div>
+    </div>
+
+    <div class="projection-modal" id="projectionModal" hidden>
+      <div class="projection-header">
+        <div>
+          <span class="eyebrow">LIVE SCENE / SPATIAL AUDIO</span>
+          <h2>现场投影</h2>
+        </div>
+        <button class="icon-button" id="closeProjection" aria-label="关闭现场投影">×</button>
+      </div>
+      <div class="projection-stage" id="projectionStage">
+        <video id="sceneVideo" autoplay muted playsinline></video>
+        <img id="scenePhoto" alt="现场照片" />
+        <canvas id="projectionCanvas"></canvas>
+        <div class="projection-placeholder" id="projectionPlaceholder">
+          <span class="projection-orbit"></span>
+          <strong>把声音放回真实场景</strong>
+          <span>开启摄像头，或上传一张现场照片</span>
+        </div>
+      </div>
+      <div class="projection-footer">
+        <div class="projection-status">
+          <span class="status-dot is-live"></span>
+          <span id="projectionStatus">正在准备现场投影</span>
+          <span id="projectionNearby">附近 0 段声音</span>
+        </div>
+        <div class="projection-controls">
+          <label class="heading-control"><span>朝向</span><input id="projectionHeading" type="range" min="0" max="360" value="0" step="1" /><strong id="projectionHeadingLabel">0°</strong></label>
+          <button class="secondary-btn" id="projectionLocate">重新定位</button>
+          <button class="secondary-btn" id="projectionCamera">开启相机</button>
+          <button class="secondary-btn" id="projectionUpload">上传照片</button>
+          <input id="projectionPhotoInput" type="file" accept="image/*" hidden />
+        </div>
       </div>
     </div>
 
