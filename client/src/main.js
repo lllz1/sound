@@ -212,7 +212,8 @@
         projectionHits = [];
         if (!projectionLocation) return;
 
-        const fovRad = projectionFov * Math.PI / 180;
+        const activeFov = Number($('projectionFov').value) || projectionFov;
+        const fovRad = activeFov * Math.PI / 180;
         const focal = width / (2 * Math.tan(fovRad / 2));
         const horizon = Math.max(
           height * 0.25,
@@ -247,10 +248,15 @@
           const distance = distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
           const bearing = bearingDegrees(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng);
           return { trace, distance, relative: normalizeDegrees(bearing - projectionHeading) };
-        }).filter((item) => item.distance <= PROJECTION_MAX_DISTANCE && Math.abs(item.relative) <= projectionFov / 2);
+        }).filter((item) => item.distance <= PROJECTION_MAX_DISTANCE && Math.abs(item.relative) <= activeFov / 2);
 
-        $('projectionNearby').textContent = `附近 ${candidates.length} 段声音`;
+        if (!street3dActive) $('projectionNearby').textContent = `附近 ${candidates.length} 段声音`;
         candidates.sort((a, b) => b.distance - a.distance);
+
+        const nearbyCount = street3dActive ? street3dMarkers.length : candidates.length;
+        $('projectionStatus').textContent = street3dActive
+          ? `3D街景 · ${street3dStatus}${street3dError ? `：${street3dError}` : ''} · 视野 ${activeFov}° · ${nearbyCount} 段`
+          : `现场投影 · 朝向 ${Math.round(projectionHeading)}° · 视野 ${activeFov}° · ${candidates.length} 段声音`;
 
         if (!candidates.length) {
           ctx.fillStyle = 'rgba(241, 246, 251, 0.6)';
@@ -325,10 +331,6 @@
           ctx.restore();
           projectionHits.push({ trace: item.trace, x, y: nodeY, radius: radius + 22 });
         }
-        const nearby = candidates.length;
-        $('projectionStatus').textContent = street3dActive
-          ? `3D街景 · ${street3dStatus}${street3dError ? `：${street3dError}` : ''} · 朝向 ${Math.round(projectionHeading)}°`
-          : `现场投影 · 朝向 ${Math.round(projectionHeading)}° · 视野 ${projectionFov}° · ${nearby} 段声音`;
       }
 
       function projectionLoop() {
@@ -475,10 +477,12 @@
         };
         const preset = presets[street3dPreset] || presets.street;
         const ahead = destinationPoint(projectionLocation.lat, projectionLocation.lng, projectionHeading, preset.offset);
+        const activeFov = Number($('projectionFov').value) || projectionFov;
+        const fovZoomOffset = (90 - activeFov) * 0.025;
         street3dSyncingCamera = true;
         street3dMap.jumpTo({
           center: [ahead.lng, ahead.lat],
-          zoom: preset.zoom,
+          zoom: Math.max(13.5, Math.min(19, preset.zoom + fovZoomOffset)),
           pitch: Math.max(20, Math.min(82, preset.pitch + projectionPitch * 1.2)),
           bearing: projectionHeading,
         });
@@ -505,6 +509,9 @@
             const element = document.createElement('button');
             const mediaType = trace.mediaType || 'audio';
             element.className = `street-node-marker ${mediaType === 'video' ? 'is-video' : mediaType === 'image' ? 'is-image' : ''}`;
+            element.dataset.id = trace.id;
+            element.classList.toggle('is-left', trace.lng > street3dMap.getCenter().lng);
+            if (current?.id === trace.id) element.classList.add('is-selected');
             element.innerHTML = `<span class="street-node-marker__ring"></span><span class="street-node-marker__core"></span><span class="street-node-marker__label">${escapeHtml(trace.title)}<small>${Math.round(distance)} m · ${escapeHtml(trace.meta || '')}</small></span>`;
             element.addEventListener('click', (event) => {
               event.stopPropagation();
@@ -517,6 +524,20 @@
             street3dMarkers.push(marker);
           });
         $('projectionNearby').textContent = `附近 ${street3dMarkers.length} 段声音`;
+      }
+
+      function refreshStreet3DMarkerSides() {
+        if (!street3dMap) return;
+        const center = street3dMap.getCenter();
+        street3dMarkers.forEach((marker) => {
+          marker.getElement().classList.toggle('is-left', marker.getLngLat().lng > center.lng);
+        });
+      }
+
+      function updateStreet3DSelection() {
+        street3dMarkers.forEach((marker) => {
+          marker.getElement().classList.toggle('is-selected', marker.getElement().dataset.id === current?.id);
+        });
       }
 
       function updateStreet3DRoute(trace) {
@@ -581,7 +602,7 @@
               'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
               'fill-extrusion-opacity': 0.9,
               'fill-extrusion-vertical-gradient': true,
-              'fill-extrusion-pattern': 'soundtrace-windows',
+              'fill-extrusion-pattern': ['case', ['>', ['coalesce', ['get', 'render_height'], ['get', 'height'], 8], 35], 'soundtrace-windows-b', 'soundtrace-windows-a'],
             },
           });
           street3dMap.addLayer({
@@ -628,6 +649,7 @@
             renderProjection();
           }
         });
+        street3dMap.on('moveend', refreshStreet3DMarkerSides);
       }
 
       function buildingHeightExpression() {
@@ -635,29 +657,40 @@
       }
 
       function addBuildingPattern(mapInstance) {
-        if (mapInstance.hasImage('soundtrace-windows')) return;
-        const size = 64;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.fillStyle = '#1a2b38';
-        ctx.fillRect(0, 0, size, size);
-        for (let y = 0; y < size; y += 16) {
-          ctx.fillStyle = 'rgba(3, 9, 15, 0.55)';
-          ctx.fillRect(0, y, size, 2);
-        }
-        for (let y = 4; y < size; y += 16) {
-          for (let x = 4; x < size; x += 12) {
-            const seed = (x * 7 + y * 13) % 17;
-            if (seed < 3) ctx.fillStyle = 'rgba(255, 205, 132, 0.55)';
-            else if (seed < 8) ctx.fillStyle = 'rgba(120, 176, 198, 0.32)';
-            else ctx.fillStyle = 'rgba(52, 92, 112, 0.24)';
-            ctx.fillRect(x, y, 6, 8);
+        const createPattern = (variant) => {
+          const size = 64;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return null;
+          ctx.fillStyle = variant === 'b' ? '#14222e' : '#1a2b38';
+          ctx.fillRect(0, 0, size, size);
+          const floor = variant === 'b' ? 14 : 16;
+          const gap = variant === 'b' ? 10 : 12;
+          for (let y = 0; y < size; y += floor) {
+            ctx.fillStyle = 'rgba(3, 9, 15, 0.58)';
+            ctx.fillRect(0, y, size, 2);
           }
+          for (let y = 4; y < size; y += floor) {
+            for (let x = 3; x < size; x += gap) {
+              const seed = (x * 7 + y * 13 + (variant === 'b' ? 5 : 0)) % 17;
+              if (seed < (variant === 'b' ? 2 : 3)) ctx.fillStyle = 'rgba(255, 205, 132, 0.58)';
+              else if (seed < 8) ctx.fillStyle = 'rgba(120, 176, 198, 0.32)';
+              else ctx.fillStyle = 'rgba(52, 92, 112, 0.24)';
+              ctx.fillRect(x, y, variant === 'b' ? 5 : 6, variant === 'b' ? 7 : 8);
+            }
+          }
+          return ctx.getImageData(0, 0, size, size);
+        };
+        if (!mapInstance.hasImage('soundtrace-windows-a')) {
+          const imageA = createPattern('a');
+          if (imageA) mapInstance.addImage('soundtrace-windows-a', imageA, { pixelRatio: 2 });
         }
-        mapInstance.addImage('soundtrace-windows', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+        if (!mapInstance.hasImage('soundtrace-windows-b')) {
+          const imageB = createPattern('b');
+          if (imageB) mapInstance.addImage('soundtrace-windows-b', imageB, { pixelRatio: 2 });
+        }
       }
 
       function applyStreet3DLight() {
@@ -703,6 +736,7 @@
         $('street3d').hidden = !active;
         $('projectionCanvas').style.display = active ? 'none' : 'block';
         $('projection3d').textContent = active ? '退出3D' : '3D街景';
+        $('projectionNearby').style.display = active ? 'none' : '';
         if (active) {
           stopProjectionCamera();
           $('scenePhoto').style.display = 'none';
@@ -892,7 +926,10 @@
         }
         $('playBtn').textContent = '▶';
         map?.panTo(toMapPoint(trace.lat, trace.lng), { animate: true });
-        if (street3dActive) updateStreet3DRoute(trace);
+        if (street3dActive) {
+          updateStreet3DRoute(trace);
+          updateStreet3DSelection();
+        }
         $('statusDot').classList.add('is-live');
         $('statusText').textContent = mediaType === 'image' ? '已选择一张照片' : mediaType === 'video' ? '已选择一段视频' : '已选择一段声音';
       }
@@ -929,7 +966,10 @@
         audioPlayer.removeAttribute('src');
         $('statusDot').classList.remove('is-live');
         $('statusText').textContent = '等待一段声音';
-        if (street3dActive) updateStreet3DRoute(null);
+        if (street3dActive) {
+          updateStreet3DRoute(null);
+          updateStreet3DSelection();
+        }
       }
 
       function editCurrent() {

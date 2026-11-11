@@ -411,6 +411,10 @@
       .street-node-marker__core { position: absolute; z-index: 1; top: 50%; left: 50%; width: 11px; height: 11px; border: 2px solid #fff2c8; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 5px rgba(255, 209, 102, 0.12), 0 0 18px rgba(255, 209, 102, 0.8); transform: translate(-50%, -50%); }
       .street-node-marker__label { position: absolute; top: 50%; left: 30px; padding: 5px 8px; color: var(--text); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px; background: rgba(7, 13, 22, 0.78); box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2); font-size: 10px; backdrop-filter: blur(8px); transform: translateY(-50%); }
       .street-node-marker__label small { display: block; margin-top: 2px; color: var(--muted-2); font-size: 8px; }
+      .street-node-marker.is-left .street-node-marker__label { right: 30px; left: auto; text-align: right; }
+      .street-node-marker.is-selected .street-node-marker__ring { border-color: rgba(255, 255, 255, 0.95); box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.14), 0 0 34px rgba(255, 209, 102, 0.75); }
+      .street-node-marker.is-selected::before { height: 82px; filter: blur(0.2px); }
+      .street-node-marker.is-selected .street-node-marker__label { border-color: rgba(255, 209, 102, 0.45); background: rgba(28, 22, 10, 0.88); }
       .street-node-marker.is-video::before { background: linear-gradient(0deg, rgba(255, 209, 102, 0.05), rgba(255, 209, 102, 0.75)); }
       .street-node-marker.is-image::before { background: linear-gradient(0deg, rgba(201, 182, 255, 0.05), rgba(201, 182, 255, 0.7)); }
       .street-node-marker.is-image .street-node-marker__core { background: var(--violet); border-color: #efe9ff; box-shadow: 0 0 0 5px rgba(201, 182, 255, 0.12), 0 0 18px rgba(201, 182, 255, 0.8); }
