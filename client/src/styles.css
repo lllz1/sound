@@ -402,11 +402,18 @@
       .street3d .maplibregl-ctrl-group button:hover { background: rgba(126, 240, 210, 0.14); }
       .street3d .maplibregl-ctrl-attrib { background: rgba(7, 13, 22, 0.72); color: var(--muted-2); font-size: 8px; }
       .street3d .maplibregl-ctrl-attrib a { color: var(--muted); }
+      .street3d-loading { position: absolute; z-index: 2; top: 50%; left: 50%; display: flex; align-items: center; gap: 9px; padding: 10px 14px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(7, 13, 22, 0.86); font-size: 10px; transform: translate(-50%, -50%); backdrop-filter: blur(10px); }
+      .street3d-loading .spinner { width: 14px; height: 14px; border: 2px solid rgba(126, 240, 210, 0.2); border-top-color: var(--mint); border-radius: 50%; animation: spin 700ms linear infinite; }
       .street-node-marker { position: relative; width: 34px; height: 34px; padding: 0; border: 0; background: transparent; color: inherit; white-space: nowrap; pointer-events: auto; cursor: pointer; }
+      .street-node-marker::before { position: absolute; bottom: 16px; left: 50%; width: 2px; height: 58px; content: ""; background: linear-gradient(0deg, rgba(255, 209, 102, 0.05), rgba(255, 209, 102, 0.65)); transform: translateX(-50%); filter: blur(0.3px); }
+      .street-node-marker::after { position: absolute; top: 17px; left: 50%; width: 34px; height: 9px; content: ""; border-radius: 50%; background: radial-gradient(ellipse, rgba(255, 209, 102, 0.28), transparent 70%); transform: translate(-50%, 0); }
       .street-node-marker__ring { position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; border: 1px solid rgba(255, 209, 102, 0.55); border-radius: 50%; box-shadow: 0 0 22px rgba(255, 209, 102, 0.28); transform: translate(-50%, -50%); }
       .street-node-marker__core { position: absolute; z-index: 1; top: 50%; left: 50%; width: 11px; height: 11px; border: 2px solid #fff2c8; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 5px rgba(255, 209, 102, 0.12), 0 0 18px rgba(255, 209, 102, 0.8); transform: translate(-50%, -50%); }
       .street-node-marker__label { position: absolute; top: 50%; left: 30px; padding: 5px 8px; color: var(--text); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px; background: rgba(7, 13, 22, 0.78); box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2); font-size: 10px; backdrop-filter: blur(8px); transform: translateY(-50%); }
       .street-node-marker__label small { display: block; margin-top: 2px; color: var(--muted-2); font-size: 8px; }
+      .street-node-marker.is-video::before { background: linear-gradient(0deg, rgba(255, 209, 102, 0.05), rgba(255, 209, 102, 0.75)); }
+      .street-node-marker.is-image::before { background: linear-gradient(0deg, rgba(201, 182, 255, 0.05), rgba(201, 182, 255, 0.7)); }
+      .street-node-marker.is-image .street-node-marker__core { background: var(--violet); border-color: #efe9ff; box-shadow: 0 0 0 5px rgba(201, 182, 255, 0.12), 0 0 18px rgba(201, 182, 255, 0.8); }
       .projection-placeholder { position: absolute; z-index: 3; top: 50%; left: 50%; display: flex; align-items: center; flex-direction: column; gap: 9px; width: min(90%, 420px); padding: 28px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 20px; background: rgba(7, 13, 22, 0.78); box-shadow: var(--shadow); text-align: center; transform: translate(-50%, -50%); backdrop-filter: blur(14px); }
       .projection-placeholder strong { color: var(--text); font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif; font-size: 22px; font-weight: 500; }
       .projection-placeholder > span:last-child { color: var(--muted-2); font-size: 10px; }
@@ -414,12 +421,15 @@
       .projection-orbit::before, .projection-orbit::after { position: absolute; top: 50%; left: 50%; border-radius: 50%; content: ""; transform: translate(-50%, -50%); }
       .projection-orbit::before { width: 10px; height: 10px; background: var(--mint); box-shadow: 0 0 24px var(--mint); }
       .projection-orbit::after { width: 104px; height: 1px; border-radius: 0; background: rgba(126, 240, 210, 0.2); }
-      .projection-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 28px; border-top: 1px solid var(--line); background: rgba(7, 11, 18, 0.92); }
-      .projection-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 9px; }
+      .projection-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 22px; border-top: 1px solid var(--line); background: rgba(7, 11, 18, 0.92); }
+      .projection-status { display: flex; min-width: 168px; align-items: center; gap: 7px; flex: 0 0 auto; color: var(--muted); font-size: 9px; white-space: nowrap; }
       .projection-status #projectionNearby { margin-left: 8px; color: var(--muted-2); }
-      .projection-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+      .projection-controls { display: flex; min-width: 0; flex: 1; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; }
+      .camera-presets { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.025); }
+      .camera-presets .secondary-btn { min-height: 26px; padding: 0 10px; border: 0; border-radius: 999px; font-size: 9px; }
+      .camera-presets .secondary-btn.is-active { color: #07110f; background: var(--mint); }
       .heading-control { display: flex; align-items: center; gap: 7px; color: var(--muted-2); font-size: 9px; }
-      .heading-control input { width: 100px; accent-color: var(--mint); }
+      .heading-control input { width: 72px; accent-color: var(--mint); }
       .heading-control strong { min-width: 32px; color: var(--mint); font-family: "Cascadia Code", Consolas, monospace; font-size: 9px; font-weight: 400; }
 
       @keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -435,6 +445,7 @@
         .hero-panel h2 { font-size: 28px; }
         .projection-footer { align-items: flex-start; flex-direction: column; }
         .projection-controls { justify-content: flex-start; }
+        .projection-status { min-width: 0; }
       }
       @media (max-width: 620px) {
         .topbar { height: 62px; padding: 0 14px; }

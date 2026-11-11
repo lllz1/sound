@@ -193,6 +193,10 @@
         <img id="scenePhoto" alt="现场照片" />
         <canvas id="projectionCanvas"></canvas>
         <div class="street3d" id="street3d" hidden></div>
+        <div class="street3d-loading" id="street3dLoading" hidden>
+          <span class="spinner"></span>
+          <span>正在构建 3D 街区…</span>
+        </div>
         <div class="projection-placeholder" id="projectionPlaceholder">
           <span class="projection-orbit"></span>
           <strong>把声音放回真实场景</strong>
@@ -206,9 +210,16 @@
           <span id="projectionNearby">附近 0 段声音</span>
         </div>
         <div class="projection-controls">
+          <div class="camera-presets" aria-label="镜头预设">
+            <button class="secondary-btn is-active" data-camera-preset="street">街景</button>
+            <button class="secondary-btn" data-camera-preset="aerial">鸟瞰</button>
+            <button class="secondary-btn" data-camera-preset="panorama">全景</button>
+          </div>
           <label class="heading-control"><span>朝向</span><input id="projectionHeading" type="range" min="0" max="360" value="0" step="1" /><strong id="projectionHeadingLabel">0°</strong></label>
           <label class="heading-control"><span>视野</span><input id="projectionFov" type="range" min="55" max="110" value="90" step="1" /><strong id="projectionFovLabel">90°</strong></label>
           <label class="heading-control"><span>俯仰</span><input id="projectionPitch" type="range" min="-15" max="15" value="0" step="1" /><strong id="projectionPitchLabel">0°</strong></label>
+          <label class="heading-control"><span>楼高</span><input id="projectionHeight" type="range" min="0.6" max="2" value="1" step="0.1" /><strong id="projectionHeightLabel">1.0×</strong></label>
+          <label class="heading-control"><span>光照</span><input id="projectionLight" type="range" min="0.2" max="1" value="0.6" step="0.05" /><strong id="projectionLightLabel">0.6</strong></label>
           <button class="secondary-btn" id="projectionLocate">重新定位</button>
           <button class="secondary-btn" id="projectionCamera">开启相机</button>
           <button class="secondary-btn" id="projection3d">3D街景</button>
