@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#070b12" />
+    <title>声迹 · Sound Trace</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="/src/styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="声迹首页">
+          <span class="brand-symbol" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <path d="M4 14v-4M8 17V7M12 20V4M16 16V8M20 13v-2" />
+            </svg>
+          </span>
+          <span class="brand-text"><strong>声迹</strong><small>SOUND TRACE</small></span>
+        </a>
+        <div class="top-status"><span class="status-dot" id="statusDot"></span><span id="statusText">等待一段声音</span></div>
+        <button class="ghost-btn" id="helpBtn">怎么玩</button>
+      </header>
+
+      <main class="workspace">
+        <section class="map-panel">
+          <div id="map" aria-label="声音地图"></div>
+          <div class="map-shade"></div>
+          <div class="map-heading">
+            <span class="eyebrow">SOUND MAP / FIELD NOTES</span>
+            <h1>听见一座城市<br /><em>留下的痕迹。</em></h1>
+          </div>
+          <div class="map-hint">点击地图，留下一段声音</div>
+          <div class="map-count"><span id="markerCount">0 段声音</span><span class="zoom-pill" id="zoomLevel">Z15</span></div>
+          <div class="zoom-tools" aria-label="地图缩放"><button id="zoomIn" aria-label="放大">+</button><button id="zoomOut" aria-label="缩小">−</button></div>
+          <div class="map-tools">
+            <form class="search-form" id="searchForm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+              <input id="searchInput" type="search" placeholder="搜索地点，如：外滩" autocomplete="off" aria-label="搜索地点" />
+              <button type="submit" aria-label="搜索">↵</button>
+            </form>
+            <div class="search-results" id="searchResults" hidden></div>
+            <button class="locate-btn" id="locateBtn" title="使用浏览器定位到当前位置">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.5" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+              <span id="locateLabel">定位到我</span>
+            </button>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <section class="panel hero-panel">
+            <span class="eyebrow">FIELD RECORDING / 01</span>
+            <h2>声音也会记得<br />它发生在哪里。</h2>
+            <p>录下 30 秒的现场声、一句话或一段故事，让它落在城市的地图上。别人路过时，就能听见你留下的那一刻。</p>
+            <div class="hero-actions">
+              <button class="primary-btn" id="recordBtn">开始录音 <span aria-hidden="true">↗</span></button>
+              <button class="secondary-btn" id="demoBtn">听一段种子声音</button>
+            </div>
+          </section>
+
+          <section class="panel player-panel">
+            <div class="panel-heading"><span class="eyebrow">NOW LISTENING</span><span id="playerTime">00:00</span></div>
+            <div class="player-title" id="playerTitle">还没有选择声音</div>
+            <div class="player-meta" id="playerMeta">点击地图上的光点</div>
+            <div class="waveform" id="waveform" aria-hidden="true"></div>
+            <div class="player-footer">
+              <div class="player-controls">
+                <button class="round-btn play" id="playBtn" disabled aria-label="播放">▶</button>
+                <button class="round-btn" id="cardBtn" disabled aria-label="保存声音明信片" title="保存声音明信片">▣</button>
+                <button class="round-btn" id="editBtn" disabled aria-label="编辑声音节点" title="编辑声音节点">✎</button>
+                <button class="round-btn" id="deleteBtn" disabled aria-label="删除声音节点" title="删除声音节点">⌫</button>
+              </div>
+              <span class="player-time" id="playerKind">LOCAL / SEED</span>
+            </div>
+          </section>
+
+          <section class="panel recent-panel">
+            <div class="panel-heading"><span class="eyebrow">RECENT TRACES</span><span id="recentCount">0</span></div>
+            <div class="recent-list" id="recentList"></div>
+          </section>
+
+          <div class="tip-panel"><strong>小提示</strong><br />录音会上传到你的 SoundTrace 服务端。需要麦克风权限，建议使用 Chrome 或 Edge。</div>
+        </aside>
+      </main>
+
+      <footer class="app-footer"><span>SOUND TRACE / A LOCAL AUDIO MAP</span><span>声音留在发生的地方</span></footer>
+    </div>
+
+    <div class="modal" id="recordModal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="record-card" role="dialog" aria-modal="true" aria-labelledby="recordTitle">
+        <button class="close-btn" id="closeRecord" aria-label="关闭">×</button>
+        <span class="eyebrow">NEW SOUND TRACE</span>
+        <h2 id="recordTitle">留下一段声音</h2>
+        <p class="record-location" id="recordLocation">地图上的位置</p>
+        <div class="field"><label for="titleInput">给它一个名字</label><input id="titleInput" maxlength="32" placeholder="例如：图书馆闭馆音乐" /></div>
+        <div class="record-stage"><canvas class="live-wave" id="liveWave" width="600" height="118"></canvas><span class="record-time" id="recordTimer">00:00</span></div>
+        <button class="primary-btn" id="modalRecordBtn">开始录音</button>
+        <audio id="recordPreview" controls hidden></audio>
+        <div class="record-actions"><button class="secondary-btn" id="cancelRecord">取消</button><button class="primary-btn" id="saveRecord" disabled>放到地图上</button></div>
+        <p class="error" id="recordError"></p>
+        <p class="record-note">最长 30 秒。录音会保存到 SoundTrace 服务端，其他设备也能打开。</p>
+      </div>
+    </div>
+
+    <div class="modal" id="helpModal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+        <button class="close-btn" id="closeHelp" aria-label="关闭">×</button>
+        <span class="eyebrow">HOW IT WORKS</span>
+        <h2 id="helpTitle">三步留下声迹</h2>
+        <ol>
+          <li><strong>选一个位置</strong>：点击地图、搜索地点，或使用“定位到我”。</li>
+          <li><strong>录下现场</strong>：按下开始，最多录 30 秒，再给它一个名字。</li>
+          <li><strong>让它留在那里</strong>：保存后地图会出现一个波形光点，点击即可回听。</li>
+        </ol>
+        <p>录音和声音节点会保存到你的 SoundTrace 服务端。声音明信片会导出成一张 PNG 图片。</p>
+        <button class="primary-btn" id="helpDone">开始探索</button>
+      </div>
+    </div>
+
+    <div class="modal" id="editModal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="record-card" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+        <button class="close-btn" id="closeEdit" aria-label="关闭">×</button>
+        <span class="eyebrow">EDIT SOUND TRACE</span>
+        <h2 id="editTitle">编辑声音节点</h2>
+        <div class="field"><label for="editName">标题</label><input id="editName" maxlength="32" /></div>
+        <div class="field"><label for="editMeta">描述</label><input id="editMeta" maxlength="64" placeholder="例如：江风 · 傍晚 · 4 秒" /></div>
+        <div class="coord-row">
+          <div class="field"><label for="editLat">纬度</label><input id="editLat" type="number" step="0.0001" /></div>
+          <div class="field"><label for="editLng">经度</label><input id="editLng" type="number" step="0.0001" /></div>
+        </div>
+        <button class="secondary-btn" id="useMapCenter">使用地图中心坐标</button>
+        <div class="record-actions"><button class="secondary-btn" id="cancelEdit">取消</button><button class="primary-btn" id="saveEdit">保存修改</button></div>
+        <p class="error" id="editError"></p>
+      </div>
+    </div>
+
+    <div class="modal" id="deleteModal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="record-card" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+        <button class="close-btn" id="closeDelete" aria-label="关闭">×</button>
+        <span class="eyebrow">DELETE SOUND TRACE</span>
+        <h2 id="deleteTitle">删除这个声音节点？</h2>
+        <p class="record-location" id="deleteName"></p>
+        <p class="record-note">删除后会从地图和服务端记录中移除。种子节点和录音都可以删除。</p>
+        <div class="record-actions"><button class="secondary-btn" id="cancelDelete">取消</button><button class="primary-btn" id="confirmDelete">确认删除</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

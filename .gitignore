@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.DS_Store
+legacy/
+extract.mjs
+amap_*.png
+amap_*.jpg
+test.wav
+server/data/traces.json
+server/uploads/*
+!server/uploads/.gitkeep
