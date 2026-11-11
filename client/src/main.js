@@ -1,3 +1,8 @@
+      import * as maplibregl from 'maplibre-gl'
+      import 'maplibre-gl/dist/maplibre-gl.css'
+
+      maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs')
+
       const MAX_RECORD_SECONDS = 30;
 
       const $ = (id) => document.getElementById(id);
@@ -86,6 +91,12 @@
       let projectionUseOrientation = true;
       let projectionHits = [];
       let projectionPhotoUrl = null;
+      let street3dMap = null;
+      let street3dMarkers = [];
+      let street3dActive = false;
+      let street3dUserMarker = null;
+      let street3dStatus = '加载中';
+      let street3dError = '';
 
       async function loadTraces() {
         const response = await fetch('/api/traces');
@@ -308,7 +319,9 @@
           projectionHits.push({ trace: item.trace, x, y: nodeY, radius: radius + 22 });
         }
         const nearby = candidates.length;
-        $('projectionStatus').textContent = `现场投影 · 朝向 ${Math.round(projectionHeading)}° · 视野 ${projectionFov}° · ${nearby} 段声音`;
+        $('projectionStatus').textContent = street3dActive
+          ? `3D街景 · ${street3dStatus}${street3dError ? `：${street3dError}` : ''} · 朝向 ${Math.round(projectionHeading)}°`
+          : `现场投影 · 朝向 ${Math.round(projectionHeading)}° · 视野 ${projectionFov}° · ${nearby} 段声音`;
       }
 
       function projectionLoop() {
@@ -327,6 +340,7 @@
       }
 
       async function startProjectionCamera() {
+        setStreet3DMode(false);
         if (projectionStream) {
           stopProjectionCamera();
           $('projectionStatus').textContent = '相机已关闭，仍可使用照片投影';
@@ -357,6 +371,7 @@
 
       function useProjectionPhoto(file) {
         if (!file) return;
+        setStreet3DMode(false);
         stopProjectionCamera();
         if (projectionPhotoUrl) URL.revokeObjectURL(projectionPhotoUrl);
         projectionPhotoUrl = URL.createObjectURL(file);
@@ -375,6 +390,10 @@
             projectionLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
             $('projectionStatus').textContent = `已定位 · 精度约 ${Math.round(position.coords.accuracy)} 米`;
             renderProjection();
+            if (street3dActive) {
+              updateStreet3DMarkers();
+              syncStreet3DView();
+            }
           },
           () => showToast('定位失败，可以在设置里允许位置权限'),
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -382,6 +401,7 @@
       }
 
       function openProjection() {
+        setStreet3DMode(false);
         projectionLocation = map ? fromMapPoint(map.getCenter()) : { lat: 31.2304, lng: 121.4737 };
         projectionUseOrientation = true;
         setProjectionHeading(0);
@@ -400,6 +420,13 @@
 
       function closeProjection() {
         stopProjectionCamera();
+        setStreet3DMode(false);
+        if (street3dMap) {
+          street3dMap.remove();
+          street3dMap = null;
+        }
+        street3dMarkers = [];
+        street3dUserMarker = null;
         if (projectionRaf) cancelAnimationFrame(projectionRaf);
         projectionRaf = null;
         projectionHits = [];
@@ -407,6 +434,127 @@
         projectionPhotoUrl = null;
         $('scenePhoto').removeAttribute('src');
         $('projectionModal').hidden = true;
+      }
+
+      function destinationPoint(lat, lng, bearing, distance) {
+        const radius = 6371000;
+        const angular = distance / radius;
+        const theta = bearing * Math.PI / 180;
+        const phi1 = lat * Math.PI / 180;
+        const lambda1 = lng * Math.PI / 180;
+        const phi2 = Math.asin(Math.sin(phi1) * Math.cos(angular) + Math.cos(phi1) * Math.sin(angular) * Math.cos(theta));
+        const lambda2 = lambda1 + Math.atan2(
+          Math.sin(theta) * Math.sin(angular) * Math.cos(phi1),
+          Math.cos(angular) - Math.sin(phi1) * Math.sin(phi2),
+        );
+        return { lat: phi2 * 180 / Math.PI, lng: ((lambda2 * 180 / Math.PI + 540) % 360) - 180 };
+      }
+
+      function syncStreet3DView() {
+        if (!street3dMap || !projectionLocation) return;
+        const ahead = destinationPoint(projectionLocation.lat, projectionLocation.lng, projectionHeading, 90);
+        street3dMap.jumpTo({
+          center: [ahead.lng, ahead.lat],
+          zoom: 17.2,
+          pitch: Math.max(35, Math.min(80, 58 + projectionPitch * 1.4)),
+          bearing: projectionHeading,
+        });
+      }
+
+      function updateStreet3DMarkers() {
+        if (!street3dMap || !projectionLocation) return;
+        street3dMarkers.forEach((marker) => marker.remove());
+        street3dMarkers = [];
+        if (street3dUserMarker) street3dUserMarker.remove();
+        street3dUserMarker = new maplibregl.Marker({ color: '#7ba8ff' })
+          .setLngLat([projectionLocation.lng, projectionLocation.lat])
+          .addTo(street3dMap);
+
+        allTraces
+          .map((trace) => ({
+            trace,
+            distance: distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng),
+          }))
+          .filter((item) => item.distance <= PROJECTION_MAX_DISTANCE)
+          .sort((a, b) => b.distance - a.distance)
+          .forEach(({ trace, distance }) => {
+            const element = document.createElement('button');
+            element.className = 'street-node-marker';
+            element.innerHTML = `<span class="street-node-marker__ring"></span><span class="street-node-marker__core"></span><span class="street-node-marker__label">${escapeHtml(trace.title)}<small>${Math.round(distance)} m · ${escapeHtml(trace.meta || '')}</small></span>`;
+            element.addEventListener('click', (event) => {
+              event.stopPropagation();
+              selectTrace(trace);
+              togglePlay();
+            });
+            const marker = new maplibregl.Marker({ element, anchor: 'center' })
+              .setLngLat([trace.lng, trace.lat])
+              .addTo(street3dMap);
+            street3dMarkers.push(marker);
+          });
+        $('projectionNearby').textContent = `附近 ${street3dMarkers.length} 段声音`;
+      }
+
+      function initializeStreet3D() {
+        if (street3dMap || !projectionLocation) return;
+        const ahead = destinationPoint(projectionLocation.lat, projectionLocation.lng, projectionHeading, 90);
+        street3dMap = new maplibregl.Map({
+          container: 'street3d',
+          style: 'https://tiles.openfreemap.org/styles/dark',
+          center: [ahead.lng, ahead.lat],
+          zoom: 17.2,
+          pitch: 58,
+          bearing: projectionHeading,
+          attributionControl: true,
+          antialias: true,
+          maxPitch: 80,
+        });
+        street3dMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true, showCompass: true }), 'bottom-right');
+        street3dMap.on('load', () => {
+          street3dStatus = '数据已加载';
+          street3dError = '';
+          if (street3dMap.getLayer('soundtrace-3d-buildings')) return;
+          street3dMap.addLayer({
+            id: 'soundtrace-3d-buildings',
+            source: 'openmaptiles',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 13,
+            paint: {
+              'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], ['get', 'height'], 8], 0, '#0d1724', 45, '#1a2d3c', 120, '#31566a'],
+              'fill-extrusion-height': ['min', ['coalesce', ['get', 'render_height'], ['get', 'height'], 8], 90],
+              'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+              'fill-extrusion-opacity': 0.84,
+            },
+          });
+          updateStreet3DMarkers();
+          syncStreet3DView();
+        });
+        street3dMap.on('error', (event) => {
+          street3dStatus = '数据加载异常';
+          street3dError = String(event?.error?.message || event?.error || '未知错误').slice(0, 80);
+          console.warn('3D street map error', event?.error);
+        });
+      }
+
+      function setStreet3DMode(active) {
+        street3dActive = active;
+        $('street3d').hidden = !active;
+        $('projectionCanvas').style.display = active ? 'none' : 'block';
+        $('projection3d').textContent = active ? '退出3D' : '3D街景';
+        if (active) {
+          stopProjectionCamera();
+          $('scenePhoto').style.display = 'none';
+          $('projectionPlaceholder').hidden = true;
+          initializeStreet3D();
+          setTimeout(() => {
+            street3dMap?.resize();
+            updateStreet3DMarkers();
+            syncStreet3DView();
+          }, 60);
+          $('projectionStatus').textContent = '3D街景 · 建筑数据来自 OpenStreetMap';
+        } else {
+          if (!projectionStream && !projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
+        }
       }
 
       function locateUser() {
@@ -1008,6 +1156,7 @@
       $('projectBtn').addEventListener('click', openProjection);
       $('closeProjection').addEventListener('click', closeProjection);
       $('projectionCamera').addEventListener('click', startProjectionCamera);
+      $('projection3d').addEventListener('click', () => setStreet3DMode(!street3dActive));
       $('projectionLocate').addEventListener('click', locateProjection);
       $('projectionUpload').addEventListener('click', () => $('projectionPhotoInput').click());
       $('projectionPhotoInput').addEventListener('change', (event) => useProjectionPhoto(event.target.files?.[0]));
@@ -1015,16 +1164,19 @@
         projectionUseOrientation = false;
         setProjectionHeading(event.target.value);
         renderProjection();
+        if (street3dActive) syncStreet3DView();
       });
       $('projectionFov').addEventListener('input', (event) => {
         projectionFov = Number(event.target.value);
         $('projectionFovLabel').textContent = `${projectionFov}°`;
         renderProjection();
+        if (street3dActive) syncStreet3DView();
       });
       $('projectionPitch').addEventListener('input', (event) => {
         projectionPitch = Number(event.target.value);
         $('projectionPitchLabel').textContent = `${projectionPitch}°`;
         renderProjection();
+        if (street3dActive) syncStreet3DView();
       });
       $('projectionStage').addEventListener('click', (event) => {
         const rect = $('projectionStage').getBoundingClientRect();

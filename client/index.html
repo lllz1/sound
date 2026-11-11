@@ -166,6 +166,7 @@
         <video id="sceneVideo" autoplay muted playsinline></video>
         <img id="scenePhoto" alt="现场照片" />
         <canvas id="projectionCanvas"></canvas>
+        <div class="street3d" id="street3d" hidden></div>
         <div class="projection-placeholder" id="projectionPlaceholder">
           <span class="projection-orbit"></span>
           <strong>把声音放回真实场景</strong>
@@ -184,6 +185,7 @@
           <label class="heading-control"><span>俯仰</span><input id="projectionPitch" type="range" min="-15" max="15" value="0" step="1" /><strong id="projectionPitchLabel">0°</strong></label>
           <button class="secondary-btn" id="projectionLocate">重新定位</button>
           <button class="secondary-btn" id="projectionCamera">开启相机</button>
+          <button class="secondary-btn" id="projection3d">3D街景</button>
           <button class="secondary-btn" id="projectionUpload">上传照片</button>
           <input id="projectionPhotoInput" type="file" accept="image/*" hidden />
         </div>

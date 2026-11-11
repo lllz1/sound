@@ -16,6 +16,7 @@
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "maplibre-gl": "^6.17.0",
     "multer": "^2.0.2"
   },
   "devDependencies": {
