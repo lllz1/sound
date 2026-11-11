@@ -291,6 +291,10 @@
       .pin-bars { position: absolute; right: 28px; bottom: 7px; display: flex; height: 18px; align-items: center; gap: 2px; opacity: 0.75; }
       .pin-bar { width: 2px; border-radius: 2px; background: var(--mint); }
       .pin.is-active .pin-bar { background: var(--amber); }
+      .pin-media .pin-core { background: var(--violet); box-shadow: 0 0 0 5px rgba(201, 182, 255, 0.1), 0 0 20px var(--violet); }
+      .pin-media.pin-video .pin-core { background: var(--amber); box-shadow: 0 0 0 5px rgba(255, 209, 102, 0.1), 0 0 20px var(--amber); }
+      .pin-glyph { position: absolute; right: 28px; bottom: 6px; color: var(--violet); font-size: 10px; }
+      .pin-video .pin-glyph { color: var(--amber); }
       .user-marker { background: transparent; border: 0; }
       .user-pin { position: relative; width: 34px; height: 34px; }
       .user-pin__ring { position: absolute; inset: 2px; border: 1px solid rgba(123, 168, 255, 0.65); border-radius: 50%; animation: marker-pulse 2.4s ease-out infinite; }
@@ -343,6 +347,8 @@
       .recent-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 8px; border: 1px solid transparent; border-radius: 10px; color: var(--text); background: transparent; text-align: left; }
       .recent-item:hover, .recent-item.is-active { border-color: var(--line); background: rgba(255, 255, 255, 0.035); }
       .recent-icon { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; color: var(--mint); border: 1px solid rgba(126, 240, 210, 0.18); border-radius: 50%; background: rgba(126, 240, 210, 0.06); font-size: 11px; }
+      .recent-icon.recent-video { color: var(--amber); border-color: rgba(255, 209, 102, 0.22); background: rgba(255, 209, 102, 0.06); }
+      .recent-icon.recent-image { color: var(--violet); border-color: rgba(201, 182, 255, 0.22); background: rgba(201, 182, 255, 0.06); }
       .recent-copy { min-width: 0; }
       .recent-copy strong, .recent-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .recent-copy strong { font-size: 10px; font-weight: 600; }
@@ -357,14 +363,23 @@
       .close-btn { position: absolute; top: 14px; right: 14px; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: transparent; font-size: 18px; }
       .record-card h2, .help-card h2 { margin: 10px 0 5px; font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif; font-size: 32px; font-weight: 500; letter-spacing: -0.05em; }
       .record-location { margin: 0 0 16px; color: var(--mint); font-size: 10px; }
+      .media-type-tabs { display: flex; gap: 4px; margin: 13px 0 12px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.025); }
+      .media-type-tabs button { flex: 1; min-height: 30px; border: 0; border-radius: 999px; color: var(--muted); background: transparent; font-size: 10px; }
+      .media-type-tabs button.is-active { color: #07110f; background: var(--mint); }
       .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
       .field label { color: var(--muted); font-size: 9px; }
       .field input { height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: rgba(255, 255, 255, 0.035); font-size: 12px; }
       .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       .record-stage { position: relative; height: 118px; margin-bottom: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: rgba(4, 9, 15, 0.55); }
       .live-wave { display: block; width: 100%; height: 100%; }
+      #recordVideoPreview, #recordImagePreview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      #recordImagePreview { object-fit: contain; background: #050a11; }
       .record-time { position: absolute; right: 10px; bottom: 8px; color: var(--muted); font-family: "Cascadia Code", Consolas, monospace; font-size: 9px; }
       .record-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+      #recordPreview, #recordVideoPlayback, #recordImagePlayback { width: 100%; max-height: 260px; margin-top: 10px; border-radius: 10px; background: #050a11; object-fit: contain; }
+      #chooseImage { margin-top: 9px; }
+      .media-viewer-card { width: min(92vw, 760px); }
+      #mediaViewerVideo, #mediaViewerImage { display: block; width: 100%; max-height: 60vh; margin-top: 12px; border-radius: 12px; background: #050a11; object-fit: contain; }
       .error { min-height: 14px; margin: 9px 0 0; color: var(--coral); font-size: 10px; }
       .record-note { margin: 8px 0 0; color: var(--muted-2); font-size: 9px; line-height: 1.6; }
       .help-card p, .help-card li { color: var(--muted); font-size: 11px; line-height: 1.75; }

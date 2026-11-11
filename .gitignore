@@ -7,6 +7,7 @@ extract.mjs
 amap_*.png
 amap_*.jpg
 test.wav
+test-video.webm
 server/data/traces.json
 server/uploads/*
 !server/uploads/.gitkeep

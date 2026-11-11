@@ -36,10 +36,12 @@ Vite 运行在 `http://127.0.0.1:5173/`，API 和上传目录代理到 `http://1
 - 地点搜索，后端代理 Nominatim / Photon
 - 现场投影：摄像头或现场照片作为背景，按地平面透视、距离、方位、视野和俯仰叠加声音标记
 - 3D 街区：MapLibre + OpenFreeMap 矢量瓦片实时挤出 OSM 建筑，节点按真实经纬度落在 3D 场景中
-- 浏览器麦克风录音，最长 30 秒
-- 音频上传到服务端，生成可播放的声音节点
+- 浏览器录制音频、视频，最长 30 秒
+- 摄像头拍摄现场照片，或从相册选择图片
+- 音频、视频、图片统一上传到服务端，生成可播放/查看的节点
 - 所有种子节点和录音节点都可以编辑标题、描述、经纬度
 - 所有节点都可以删除，服务端会同步删除音频文件
+- 图片和视频节点在播放面板、地图标记和最近列表中用不同图标区分
 - 生成 1080 × 1350 的“声音明信片”PNG
 - 响应式深色界面
 
@@ -64,7 +66,7 @@ legacy/
 ## API
 
 - `GET /api/traces`
-- `POST /api/traces`：multipart，字段 `audio/title/meta/lat/lng/duration/peaks`
+- `POST /api/traces`：multipart，字段 `media/mediaType/title/meta/lat/lng/duration/peaks`
 - `PATCH /api/traces/:id`
 - `DELETE /api/traces/:id`
 - `GET /api/geocode?q=`

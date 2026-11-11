@@ -55,9 +55,9 @@
           <section class="panel hero-panel">
             <span class="eyebrow">FIELD RECORDING / 01</span>
             <h2>声音也会记得<br />它发生在哪里。</h2>
-            <p>录下 30 秒的现场声、一句话或一段故事，让它落在城市的地图上。别人路过时，就能听见你留下的那一刻。</p>
+            <p>录下 30 秒的声音或视频，或拍一张现场照片，让它落在城市的地图上。别人路过时，就能听见、看见你留下的那一刻。</p>
             <div class="hero-actions">
-              <button class="primary-btn" id="recordBtn">开始录音 <span aria-hidden="true">↗</span></button>
+              <button class="primary-btn" id="recordBtn">开始记录 <span aria-hidden="true">↗</span></button>
               <button class="secondary-btn" id="demoBtn">听一段种子声音</button>
               <button class="secondary-btn" id="projectBtn">现场投影</button>
             </div>
@@ -96,15 +96,29 @@
       <div class="record-card" role="dialog" aria-modal="true" aria-labelledby="recordTitle">
         <button class="close-btn" id="closeRecord" aria-label="关闭">×</button>
         <span class="eyebrow">NEW SOUND TRACE</span>
-        <h2 id="recordTitle">留下一段声音</h2>
+        <h2 id="recordTitle">留下一段现场</h2>
+        <div class="media-type-tabs" role="tablist" aria-label="媒体类型">
+          <button class="is-active" data-media-type="audio" role="tab" aria-selected="true">音频</button>
+          <button data-media-type="video" role="tab" aria-selected="false">视频</button>
+          <button data-media-type="image" role="tab" aria-selected="false">图片</button>
+        </div>
         <p class="record-location" id="recordLocation">地图上的位置</p>
         <div class="field"><label for="titleInput">给它一个名字</label><input id="titleInput" maxlength="32" placeholder="例如：图书馆闭馆音乐" /></div>
-        <div class="record-stage"><canvas class="live-wave" id="liveWave" width="600" height="118"></canvas><span class="record-time" id="recordTimer">00:00</span></div>
+        <div class="record-stage">
+          <canvas class="live-wave" id="liveWave" width="600" height="118"></canvas>
+          <video id="recordVideoPreview" autoplay muted playsinline hidden></video>
+          <img id="recordImagePreview" alt="待保存照片" hidden />
+          <span class="record-time" id="recordTimer">00:00</span>
+        </div>
         <button class="primary-btn" id="modalRecordBtn">开始录音</button>
         <audio id="recordPreview" controls hidden></audio>
+        <video id="recordVideoPlayback" controls hidden></video>
+        <img id="recordImagePlayback" alt="已拍摄照片" hidden />
+        <button class="secondary-btn" id="chooseImage" hidden>从相册选择</button>
+        <input id="recordImageInput" type="file" accept="image/*" hidden />
         <div class="record-actions"><button class="secondary-btn" id="cancelRecord">取消</button><button class="primary-btn" id="saveRecord" disabled>放到地图上</button></div>
         <p class="error" id="recordError"></p>
-        <p class="record-note">最长 30 秒。录音会保存到 SoundTrace 服务端，其他设备也能打开。</p>
+        <p class="record-note" id="recordNote">最长 30 秒。音频、视频和图片都会保存到 SoundTrace 服务端。</p>
       </div>
     </div>
 
@@ -151,6 +165,18 @@
         <p class="record-location" id="deleteName"></p>
         <p class="record-note">删除后会从地图和服务端记录中移除。种子节点和录音都可以删除。</p>
         <div class="record-actions"><button class="secondary-btn" id="cancelDelete">取消</button><button class="primary-btn" id="confirmDelete">确认删除</button></div>
+      </div>
+    </div>
+
+    <div class="modal" id="mediaViewerModal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="record-card media-viewer-card" role="dialog" aria-modal="true" aria-labelledby="mediaViewerTitle">
+        <button class="close-btn" id="closeMediaViewer" aria-label="关闭">×</button>
+        <span class="eyebrow">FIELD CAPTURE</span>
+        <h2 id="mediaViewerTitle">现场媒体</h2>
+        <p class="record-location" id="mediaViewerMeta"></p>
+        <video id="mediaViewerVideo" controls hidden></video>
+        <img id="mediaViewerImage" alt="声音节点图片" hidden />
       </div>
     </div>
 

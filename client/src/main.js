@@ -72,6 +72,8 @@
       let pendingBlob = null;
       let pendingPeaks = null;
       let pendingDuration = 0;
+      let recordMediaType = 'audio';
+      let pendingMediaType = 'audio';
       let selectedLocation = null;
       let toastTimer = null;
       let userMarker = null;
@@ -662,6 +664,11 @@
       }
 
       function markerIcon(trace) {
+        const mediaType = trace.mediaType || 'audio';
+        if (mediaType !== 'audio') {
+          const glyph = mediaType === 'video' ? '▶' : '◧';
+          return L.divIcon({ className: 'sound-marker', html: `<div class="pin pin-media pin-${mediaType}" data-id="${escapeHtml(trace.id)}"><span class="pin-ring"></span><span class="pin-core"></span><span class="pin-glyph">${glyph}</span></div>`, iconSize: [40, 40], iconAnchor: [20, 20] });
+        }
         const bars = (trace.peaks || []).slice(0, 5).map((peak) => `<span class="pin-bar" style="height:${Math.round(5 + peak * 13)}px"></span>`).join('');
         return L.divIcon({ className: 'sound-marker', html: `<div class="pin" data-id="${escapeHtml(trace.id)}"><span class="pin-ring"></span><span class="pin-core"></span><span class="pin-bars">${bars}</span></div>`, iconSize: [40, 40], iconAnchor: [20, 20] });
       }
@@ -679,7 +686,7 @@
       }
 
       function updateCount() {
-        $('markerCount').textContent = `${allTraces.length} 段声音`;
+        $('markerCount').textContent = `${allTraces.length} 条记录`;
         $('recentCount').textContent = String(allTraces.length);
       }
 
@@ -707,21 +714,40 @@
         $('playerTitle').textContent = trace.title;
         $('playerMeta').textContent = trace.meta || trace.kindLabel || '声音记录';
         $('playerTime').textContent = formatTime(trace.duration || 0);
-        $('playerKind').textContent = trace.kindLabel || (trace.type === 'seed' ? 'SEED SOUND' : 'MY RECORDING');
+        const mediaType = trace.mediaType || (trace.type === 'seed' ? 'audio' : 'audio');
+        const kindLabels = { audio: 'AUDIO', video: 'VIDEO', image: 'PHOTO' };
+        $('playerKind').textContent = trace.kindLabel ? `${trace.kindLabel} / ${kindLabels[mediaType]}` : (trace.type === 'seed' ? 'SEED SOUND' : kindLabels[mediaType]);
         $('playBtn').disabled = false;
         $('cardBtn').disabled = false;
         $('editBtn').disabled = false;
         $('deleteBtn').disabled = false;
+        $('waveform').style.display = mediaType === 'audio' ? 'flex' : 'none';
         renderWaveform(trace.peaks);
         renderRecent();
-        if (trace.type === 'recording' && trace.audioUrl) {
-          audioPlayer.src = trace.audioUrl;
+        if (mediaType === 'audio' && (trace.mediaUrl || trace.audioUrl)) {
+          audioPlayer.src = trace.mediaUrl || trace.audioUrl;
         } else {
           audioPlayer.removeAttribute('src');
         }
+        $('playBtn').textContent = '▶';
         map?.panTo(toMapPoint(trace.lat, trace.lng), { animate: true });
         $('statusDot').classList.add('is-live');
-        $('statusText').textContent = '已选择一段声音';
+        $('statusText').textContent = mediaType === 'image' ? '已选择一张照片' : mediaType === 'video' ? '已选择一段视频' : '已选择一段声音';
+      }
+
+      function openMediaViewer(trace) {
+        const mediaType = trace.mediaType || 'audio';
+        const mediaUrl = trace.mediaUrl || trace.audioUrl;
+        if (!mediaUrl || mediaType === 'audio') return;
+        $('mediaViewerTitle').textContent = trace.title;
+        $('mediaViewerMeta').textContent = trace.meta || '';
+        $('mediaViewerVideo').hidden = mediaType !== 'video';
+        $('mediaViewerImage').hidden = mediaType !== 'image';
+        $('mediaViewerVideo').removeAttribute('src');
+        $('mediaViewerImage').removeAttribute('src');
+        if (mediaType === 'video') $('mediaViewerVideo').src = mediaUrl;
+        else $('mediaViewerImage').src = mediaUrl;
+        $('mediaViewerModal').hidden = false;
       }
 
       function resetPlayer() {
@@ -732,6 +758,7 @@
         $('playerMeta').textContent = '点击地图上的光点';
         $('playerTime').textContent = '00:00';
         $('playerKind').textContent = 'LOCAL / SEED';
+        $('waveform').style.display = 'flex';
         $('playBtn').disabled = true;
         $('cardBtn').disabled = true;
         $('editBtn').disabled = true;
@@ -813,6 +840,11 @@
 
       function togglePlay() {
         if (!current) return;
+        const mediaType = current.mediaType || 'audio';
+        if (mediaType === 'video' || mediaType === 'image') {
+          openMediaViewer(current);
+          return;
+        }
         if (current.type === 'seed') {
           if (seedNodes.length) stopPlayback();
           else playSeed(current);
@@ -901,7 +933,9 @@
         allTraces.slice(-5).reverse().forEach((trace) => {
           const button = document.createElement('button');
           button.className = `recent-item ${current?.id === trace.id ? 'is-active' : ''}`;
-          button.innerHTML = `<span class="recent-icon">${trace.type === 'seed' ? '◉' : '●'}</span><span class="recent-copy"><strong>${escapeHtml(trace.title)}</strong><span>${escapeHtml(trace.meta || trace.kindLabel || '')}</span></span>`;
+          const mediaType = trace.mediaType || 'audio';
+          const icon = mediaType === 'video' ? '▶' : mediaType === 'image' ? '◧' : trace.type === 'seed' ? '◉' : '●';
+          button.innerHTML = `<span class="recent-icon recent-${mediaType}">${icon}</span><span class="recent-copy"><strong>${escapeHtml(trace.title)}</strong><span>${escapeHtml(trace.meta || trace.kindLabel || '')}</span></span>`;
           button.addEventListener('click', () => selectTrace(trace));
           list.appendChild(button);
         });
@@ -913,6 +947,34 @@
         $('recordModal').hidden = false;
         $('titleInput').value = '';
         $('recordError').textContent = '';
+        setRecordMediaType('audio');
+      }
+
+      function updateRecordButtonText(recording = false) {
+        if (recordMediaType === 'image') {
+          $('modalRecordBtn').textContent = pendingBlob ? '重新拍摄' : '开启相机';
+          return;
+        }
+        if (recording) {
+          $('modalRecordBtn').textContent = recordMediaType === 'video' ? '停止录像' : '停止录音';
+          return;
+        }
+        $('modalRecordBtn').textContent = recordMediaType === 'video' ? '开始录像' : '开始录音';
+      }
+
+      function setRecordMediaType(type) {
+        recordMediaType = ['audio', 'video', 'image'].includes(type) ? type : 'audio';
+        document.querySelectorAll('.media-type-tabs button').forEach((button) => {
+          const active = button.dataset.mediaType === recordMediaType;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-selected', String(active));
+        });
+        $('chooseImage').hidden = recordMediaType !== 'image';
+        $('recordNote').textContent = recordMediaType === 'image'
+          ? '可以拍摄一张现场照片，或从相册选择。图片会保存到 SoundTrace 服务端。'
+          : recordMediaType === 'video'
+            ? '最长 30 秒。视频会保存到 SoundTrace 服务端，其他设备也能播放。'
+            : '最长 30 秒。音频会保存到 SoundTrace 服务端，其他设备也能播放。';
         resetRecordState();
       }
 
@@ -921,11 +983,20 @@
         pendingBlob = null;
         pendingPeaks = null;
         pendingDuration = 0;
+        pendingMediaType = recordMediaType;
         $('saveRecord').disabled = true;
-        $('modalRecordBtn').textContent = '开始录音';
         $('recordTimer').textContent = '00:00';
         $('recordPreview').hidden = true;
         $('recordPreview').removeAttribute('src');
+        $('recordVideoPlayback').hidden = true;
+        $('recordVideoPlayback').removeAttribute('src');
+        $('recordImagePlayback').hidden = true;
+        $('recordImagePlayback').removeAttribute('src');
+        $('recordVideoPreview').hidden = true;
+        $('recordImagePreview').hidden = true;
+        $('liveWave').hidden = recordMediaType !== 'audio';
+        $('chooseImage').hidden = recordMediaType !== 'image';
+        updateRecordButtonText(false);
         clearLiveWave();
       }
 
@@ -935,13 +1006,31 @@
       }
 
       async function startRecording() {
+        if (recordMediaType === 'image') {
+          if (mediaStream) {
+            captureImage();
+          } else {
+            await startImageCamera();
+          }
+          return;
+        }
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          stopRecording();
+          return;
+        }
         if (!navigator.mediaDevices?.getUserMedia) {
-          $('recordError').textContent = '当前浏览器不支持麦克风录音，请使用 Chrome 或 Edge。';
+          $('recordError').textContent = '当前浏览器不支持媒体录制，请使用 Chrome 或 Edge。';
           return;
         }
         try {
-          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+          const isVideo = recordMediaType === 'video';
+          mediaStream = await navigator.mediaDevices.getUserMedia(isVideo
+            ? { video: { facingMode: { ideal: 'environment' } }, audio: true }
+            : { audio: true });
+          const mimeCandidates = isVideo
+            ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+            : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+          const mime = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || '';
           mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
           recordChunks = [];
           mediaRecorder.ondataavailable = (event) => { if (event.data.size) recordChunks.push(event.data); };
@@ -950,25 +1039,38 @@
           recordStartedAt = performance.now();
           pendingBlob = null;
           pendingPeaks = null;
+          pendingMediaType = recordMediaType;
           $('saveRecord').disabled = true;
-          $('modalRecordBtn').textContent = '停止录音';
+          updateRecordButtonText(true);
           $('recordError').textContent = '';
           $('recordPreview').hidden = true;
-          $('statusText').textContent = '正在录音';
+          $('recordVideoPlayback').hidden = true;
+          $('recordImagePlayback').hidden = true;
+          if (isVideo) {
+            $('liveWave').hidden = true;
+            $('recordVideoPreview').srcObject = mediaStream;
+            $('recordVideoPreview').hidden = false;
+          } else {
+            $('liveWave').hidden = false;
+            $('recordVideoPreview').hidden = true;
+          }
+          $('statusText').textContent = isVideo ? '正在录像' : '正在录音';
           $('statusDot').classList.add('is-live');
-          const ctx = ensureAudioContext();
-          liveAnalyser = ctx.createAnalyser();
-          liveAnalyser.fftSize = 512;
-          const source = ctx.createMediaStreamSource(mediaStream);
-          source.connect(liveAnalyser);
+          if (!isVideo) {
+            const ctx = ensureAudioContext();
+            liveAnalyser = ctx.createAnalyser();
+            liveAnalyser.fftSize = 512;
+            const source = ctx.createMediaStreamSource(mediaStream);
+            source.connect(liveAnalyser);
+            drawLiveWave();
+          }
           recordTimer = setInterval(() => {
             const elapsed = (performance.now() - recordStartedAt) / 1000;
             $('recordTimer').textContent = formatTime(Math.min(elapsed, MAX_RECORD_SECONDS));
             if (elapsed >= MAX_RECORD_SECONDS) stopRecording();
           }, 100);
-          drawLiveWave();
         } catch (error) {
-          $('recordError').textContent = '无法使用麦克风，请检查浏览器权限。';
+          $('recordError').textContent = recordMediaType === 'video' ? '无法使用摄像头和麦克风，请检查浏览器权限。' : '无法使用麦克风，请检查浏览器权限。';
           stopRecording();
         }
       }
@@ -977,24 +1079,116 @@
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
         if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
         mediaStream = null;
+        $('recordVideoPreview').srcObject = null;
+        $('recordVideoPreview').hidden = true;
         clearInterval(recordTimer);
         recordTimer = null;
         if (liveRaf) cancelAnimationFrame(liveRaf);
         liveRaf = null;
-        $('modalRecordBtn').textContent = '开始录音';
+        updateRecordButtonText(false);
       }
 
       function finalizeRecording() {
         if (!recordChunks.length) return;
-        const blob = new Blob(recordChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
+        const isVideo = pendingMediaType === 'video';
+        const blob = new Blob(recordChunks, { type: mediaRecorder?.mimeType || (isVideo ? 'video/webm' : 'audio/webm') });
         pendingBlob = blob;
         pendingDuration = Math.min(MAX_RECORD_SECONDS, (performance.now() - recordStartedAt) / 1000);
-        $('recordPreview').src = URL.createObjectURL(blob);
-        $('recordPreview').hidden = false;
+        const url = URL.createObjectURL(blob);
+        if (isVideo) {
+          $('recordVideoPlayback').src = url;
+          $('recordVideoPlayback').hidden = false;
+        } else {
+          $('recordPreview').src = url;
+          $('recordPreview').hidden = false;
+        }
         $('saveRecord').disabled = false;
         $('recordTimer').textContent = formatTime(pendingDuration);
-        analyzeBlob(blob).then((peaks) => { pendingPeaks = peaks; }).catch(() => { pendingPeaks = makePeaks('recording'); });
-        $('statusText').textContent = '录音完成，等待保存';
+        if (!isVideo) {
+          analyzeBlob(blob).then((peaks) => { pendingPeaks = peaks; }).catch(() => { pendingPeaks = makePeaks('recording'); });
+        }
+        $('statusText').textContent = isVideo ? '录像完成，等待保存' : '录音完成，等待保存';
+      }
+
+      async function startImageCamera() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          $('recordError').textContent = '当前浏览器不支持摄像头，请从相册选择图片。';
+          return;
+        }
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          });
+          const preview = $('recordVideoPreview');
+          preview.srcObject = mediaStream;
+          preview.hidden = false;
+          $('liveWave').hidden = true;
+          $('recordImagePreview').hidden = true;
+          $('modalRecordBtn').textContent = '拍摄';
+          $('recordError').textContent = '';
+          await preview.play();
+          $('statusText').textContent = '相机已开启，点击拍摄';
+        } catch {
+          $('recordError').textContent = '无法开启摄像头，请检查浏览器权限，或从相册选择图片。';
+        }
+      }
+
+      function captureImage() {
+        const video = $('recordVideoPreview');
+        if (!video.videoWidth) {
+          $('recordError').textContent = '相机还没有准备好，请稍等再拍。';
+          return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          pendingBlob = blob;
+          pendingMediaType = 'image';
+          pendingDuration = 0;
+          const url = URL.createObjectURL(blob);
+          $('recordImagePreview').src = url;
+          $('recordImagePreview').hidden = false;
+          $('recordImagePlayback').src = url;
+          $('recordImagePlayback').hidden = false;
+          $('saveRecord').disabled = false;
+          if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+          video.srcObject = null;
+          video.hidden = true;
+          $('modalRecordBtn').textContent = '重新开启相机';
+          $('recordError').textContent = '';
+          $('statusText').textContent = '照片已拍下，等待保存';
+        }, 'image/jpeg', 0.9);
+      }
+
+      function useSelectedImage(file) {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          $('recordError').textContent = '请选择图片文件。';
+          return;
+        }
+        if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+        $('recordVideoPreview').srcObject = null;
+        $('recordVideoPreview').hidden = true;
+        pendingBlob = file;
+        pendingMediaType = 'image';
+        pendingDuration = 0;
+        const url = URL.createObjectURL(file);
+        $('recordImagePreview').src = url;
+        $('recordImagePreview').hidden = false;
+        $('recordImagePlayback').src = url;
+        $('recordImagePlayback').hidden = false;
+        $('saveRecord').disabled = false;
+        $('modalRecordBtn').textContent = '重新选择/拍摄';
+        $('recordError').textContent = '';
+        $('statusText').textContent = '图片已选择，等待保存';
       }
 
       async function analyzeBlob(blob) {
@@ -1049,14 +1243,16 @@
 
       async function saveRecording() {
         if (!pendingBlob || !selectedLocation) {
-          $('recordError').textContent = '还没有可保存的录音。';
+          $('recordError').textContent = '还没有可保存的媒体。';
           return;
         }
         const title = $('titleInput').value.trim() || '未命名声音';
+        const ext = pendingMediaType === 'video' ? 'webm' : pendingMediaType === 'image' ? (pendingBlob.type.includes('png') ? 'png' : 'jpg') : 'webm';
         const form = new FormData();
-        form.append('audio', pendingBlob, `soundtrace-${Date.now()}.webm`);
+        form.append('media', pendingBlob, `soundtrace-${Date.now()}.${ext}`);
         form.append('title', title);
-        form.append('meta', `现场录音 · ${formatTime(pendingDuration)}`);
+        form.append('mediaType', pendingMediaType);
+        form.append('meta', pendingMediaType === 'image' ? '现场照片' : pendingMediaType === 'video' ? `现场视频 · ${formatTime(pendingDuration)}` : `现场录音 · ${formatTime(pendingDuration)}`);
         form.append('lat', String(selectedLocation.lat));
         form.append('lng', String(selectedLocation.lng));
         form.append('duration', String(pendingDuration));
@@ -1070,7 +1266,7 @@
           addTraceMarker(trace);
           selectTrace(trace);
           closeRecord();
-          showToast('声音已经留在这一带');
+          showToast(pendingMediaType === 'image' ? '照片已经留在这一带' : pendingMediaType === 'video' ? '视频已经留在这一带' : '声音已经留在这一带');
         } catch {
           $('recordError').textContent = '上传失败，请检查服务端是否启动。';
         } finally {
@@ -1160,6 +1356,17 @@
       $('projectionLocate').addEventListener('click', locateProjection);
       $('projectionUpload').addEventListener('click', () => $('projectionPhotoInput').click());
       $('projectionPhotoInput').addEventListener('change', (event) => useProjectionPhoto(event.target.files?.[0]));
+      document.querySelectorAll('.media-type-tabs button').forEach((button) => {
+        button.addEventListener('click', () => setRecordMediaType(button.dataset.mediaType));
+      });
+      $('chooseImage').addEventListener('click', () => $('recordImageInput').click());
+      $('recordImageInput').addEventListener('change', (event) => useSelectedImage(event.target.files?.[0]));
+      $('closeMediaViewer').addEventListener('click', () => {
+        $('mediaViewerVideo').pause();
+        $('mediaViewerVideo').removeAttribute('src');
+        $('mediaViewerImage').removeAttribute('src');
+        $('mediaViewerModal').hidden = true;
+      });
       $('projectionHeading').addEventListener('input', (event) => {
         projectionUseOrientation = false;
         setProjectionHeading(event.target.value);
@@ -1222,6 +1429,10 @@
         $('helpModal').hidden = true;
         $('editModal').hidden = true;
         $('deleteModal').hidden = true;
+        $('mediaViewerVideo').pause();
+        $('mediaViewerVideo').removeAttribute('src');
+        $('mediaViewerImage').removeAttribute('src');
+        $('mediaViewerModal').hidden = true;
         $('searchResults').hidden = true;
         closeProjection();
         editingTrace = null;

@@ -25,17 +25,23 @@ const storage = multer.diskStorage({
         : file.mimetype.includes('ogg')
           ? '.ogg'
           : file.mimetype.includes('mp4')
-            ? '.m4a'
-            : '.webm'
+            ? '.mp4'
+            : file.mimetype.includes('jpeg')
+              ? '.jpg'
+              : file.mimetype.includes('png')
+                ? '.png'
+                : file.mimetype.includes('webp')
+                  ? '.webp'
+                  : '.webm'
     done(null, `${Date.now()}-${crypto.randomBytes(5).toString('hex')}${ext}`)
   },
 })
 const upload = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 60 * 1024 * 1024 },
   fileFilter: (_req, file, done) => {
-    if (file.mimetype.startsWith('audio/')) done(null, true)
-    else done(new Error('只允许上传音频文件'))
+    if (file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) done(null, true)
+    else done(new Error('只允许上传音频、视频或图片'))
   },
 })
 
@@ -56,29 +62,34 @@ app.get('/api/traces', async (_req, res) => {
   }
 })
 
-app.post('/api/traces', upload.single('audio'), async (req, res) => {
+app.post('/api/traces', upload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), async (req, res) => {
   try {
+    const file = req.files?.media?.[0] || req.files?.audio?.[0]
     const lat = Number(req.body.lat)
     const lng = Number(req.body.lng)
     const duration = Number(req.body.duration)
-    if (!req.file) return res.status(400).json({ error: '缺少音频文件' })
+    if (!file) return res.status(400).json({ error: '缺少媒体文件' })
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-      await fs.unlink(req.file.path).catch(() => {})
+      await fs.unlink(file.path).catch(() => {})
       return res.status(400).json({ error: '无效的经纬度' })
     }
     let peaks = []
     try { peaks = JSON.parse(req.body.peaks || '[]') } catch { peaks = [] }
+    const inferredType = file.mimetype.startsWith('video/') ? 'video' : file.mimetype.startsWith('image/') ? 'image' : 'audio'
+    const mediaType = ['audio', 'video', 'image'].includes(req.body.mediaType) ? req.body.mediaType : inferredType
     const trace = {
       id: `rec-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
       type: 'recording',
       kindLabel: 'MY RECORDING',
       title: String(req.body.title || '未命名声音').slice(0, 32),
-      meta: String(req.body.meta || `现场录音 · ${Math.max(1, Math.round(duration || 1))} 秒`).slice(0, 80),
+      meta: String(req.body.meta || `${mediaType === 'audio' ? '现场录音' : mediaType === 'video' ? '现场视频' : '现场照片'} · ${Math.max(1, Math.round(duration || 1))} 秒`).slice(0, 80),
       lat,
       lng,
       duration: Math.max(0.1, Math.min(30, duration || 1)),
       peaks: Array.isArray(peaks) && peaks.length ? peaks.slice(0, 64) : [],
-      audioUrl: `/uploads/${req.file.filename}`,
+      mediaType,
+      mediaUrl: `/uploads/${file.filename}`,
+      audioUrl: mediaType === 'audio' ? `/uploads/${file.filename}` : undefined,
       createdAt: Date.now(),
     }
     const traces = await readTraces()
@@ -123,8 +134,9 @@ app.delete('/api/traces/:id', async (req, res) => {
     if (index === -1) return res.status(404).json({ error: '声音节点不存在' })
     const [trace] = traces.splice(index, 1)
     await writeTraces(traces)
-    if (trace.type === 'recording' && trace.audioUrl?.startsWith('/uploads/')) {
-      await fs.unlink(path.join(uploadDir, path.basename(trace.audioUrl))).catch(() => {})
+    const mediaPath = trace.mediaUrl || trace.audioUrl
+    if (trace.type === 'recording' && mediaPath?.startsWith('/uploads/')) {
+      await fs.unlink(path.join(uploadDir, path.basename(mediaPath))).catch(() => {})
     }
     res.json({ ok: true })
   } catch (error) {
