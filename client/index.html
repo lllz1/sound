@@ -193,6 +193,12 @@
         <img id="scenePhoto" alt="现场照片" />
         <canvas id="projectionCanvas"></canvas>
         <div class="street3d" id="street3d" hidden></div>
+        <div class="amap3d" id="amap3d" hidden></div>
+        <div class="amap3d-note" id="amap3dTools" hidden>
+          <strong>高德地图 · 3D 楼块</strong>
+          <p id="amap3dHint" role="status">正在准备高德地图…</p>
+          <a href="https://lbs.amap.com/api/javascript-api-v2/guide/abc/prepare" target="_blank" rel="noopener noreferrer">查看密钥配置说明 ↗</a>
+        </div>
         <div class="real3d" id="real3d" hidden></div>
         <div class="real3d-tools" id="real3dTools" hidden>
           <div class="real3d-tools__bar">
@@ -247,6 +253,7 @@
           <button class="secondary-btn" id="projectionLocate">重新定位</button>
           <button class="secondary-btn" id="projectionCamera">开启相机</button>
           <button class="secondary-btn" id="projection3d">3D街景</button>
+          <button class="secondary-btn" id="projectionAmap3d">高德3D</button>
           <button class="secondary-btn" id="projectionReal3d">实景3D</button>
           <button class="secondary-btn" id="projectionUpload">上传照片</button>
           <input id="projectionPhotoInput" type="file" accept="image/*" hidden />

@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readTraces, writeTraces } from './store.js'
+import { createAmapRouter, readAmapConfig } from './amap.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -48,6 +49,7 @@ const upload = multer({
 const app = express()
 app.use(cors())
 app.use(express.json({ limit: '1mb' }))
+app.use(createAmapRouter({ getConfig: () => readAmapConfig(root) }))
 app.use('/uploads', express.static(uploadDir, { maxAge: '7d' }))
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))

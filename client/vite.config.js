@@ -22,6 +22,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://127.0.0.1:8088',
+      '/_AMapService': 'http://127.0.0.1:8088',
       '/uploads': 'http://127.0.0.1:8088',
     },
   },

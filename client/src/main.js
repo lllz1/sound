@@ -104,6 +104,10 @@
       let street3dPreset = 'street';
       let street3dSyncingCamera = false;
       let street3dTerrain = true;
+      let amap3dActive = false;
+      let amap3dScene = null;
+      let amap3dRequestId = 0;
+      let amap3dStatus = '等待配置';
       let real3dActive = false;
       let real3dScene = null;
       let real3dRequestId = 0;
@@ -218,6 +222,10 @@
         projectionHits = [];
         if (!projectionLocation) return;
 
+        if (amap3dActive) {
+          $('projectionStatus').textContent = `高德3D · ${amap3dStatus} · 视野 ${projectionFov}°`;
+          return;
+        }
         if (real3dActive) {
           $('projectionStatus').textContent = `实景3D · ${real3dStatus} · 视野 ${projectionFov}°`;
           return;
@@ -360,6 +368,7 @@
       }
 
       async function startProjectionCamera() {
+        setAmap3DMode(false);
         setReal3DMode(false);
         setStreet3DMode(false);
         if (projectionStream) {
@@ -392,6 +401,7 @@
 
       function useProjectionPhoto(file) {
         if (!file) return;
+        setAmap3DMode(false);
         setReal3DMode(false);
         setStreet3DMode(false);
         stopProjectionCamera();
@@ -421,6 +431,11 @@
               syncReal3DView();
               $('real3dHint').textContent = `已定位，精度约 ${Math.round(position.coords.accuracy)} 米；实景数据覆盖因地点而异。`;
             }
+            if (amap3dActive) {
+              updateAmap3DMarkers();
+              syncAmap3DView();
+              $('amap3dHint').textContent = `已定位，精度约 ${Math.round(position.coords.accuracy)} 米；建筑覆盖以高德当地数据为准。`;
+            }
           },
           () => showToast('定位失败，可以在设置里允许位置权限'),
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -428,6 +443,7 @@
       }
 
       function openProjection() {
+        setAmap3DMode(false);
         setReal3DMode(false);
         setStreet3DMode(false);
         projectionLocation = map ? fromMapPoint(map.getCenter()) : { lat: 31.2304, lng: 121.4737 };
@@ -457,6 +473,7 @@
 
       function closeProjection() {
         stopProjectionCamera();
+        setAmap3DMode(false);
         setReal3DMode(false);
         setStreet3DMode(false);
         if (street3dMap) {
@@ -752,6 +769,7 @@
       }
 
       function setStreet3DMode(active) {
+        if (active && amap3dActive) setAmap3DMode(false);
         if (active && real3dActive) setReal3DMode(false);
         street3dActive = active;
         $('street3d').hidden = !active;
@@ -773,6 +791,91 @@
         } else {
           $('street3dLoading').hidden = true;
           if (!projectionStream && !projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
+        }
+      }
+
+      function refreshProjectionControls() {
+        $('projectionTerrain').disabled = real3dActive || amap3dActive;
+        $('projectionHeight').disabled = real3dActive;
+        $('projectionLight').disabled = real3dActive || amap3dActive;
+        $('projectionTerrain').title = real3dActive ? '实景模型包含原始地形，无法单独调整' : amap3dActive ? '高德楼块模式暂不支持此地形开关' : '';
+        $('projectionHeight').title = real3dActive ? '实景建筑使用原始高度' : '';
+        $('projectionLight').title = real3dActive ? '实景纹理使用原始光照' : amap3dActive ? '高德地图光照不支持此滑杆' : '';
+      }
+
+      function setAmap3DStatus(status, hint) {
+        amap3dStatus = status;
+        if (hint) $('amap3dHint').textContent = hint;
+        renderProjection();
+      }
+
+      function syncAmap3DView() {
+        if (!amap3dActive || !amap3dScene || !projectionLocation) return;
+        amap3dScene.updateView({ location: projectionLocation, heading: projectionHeading, pitch: projectionPitch, fov: projectionFov, preset: street3dPreset });
+      }
+
+      function updateAmap3DMarkers() {
+        if (!amap3dScene || !projectionLocation) return;
+        const nearby = allTraces.map((trace) => ({ trace, distance: distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng) }))
+          .filter((item) => item.distance <= PROJECTION_MAX_DISTANCE);
+        amap3dScene.updateMarkers(nearby, current?.id);
+      }
+
+      async function connectAmap3D() {
+        const requestId = ++amap3dRequestId;
+        setAmap3DStatus('正在连接', '正在准备高德三维地图…');
+        try {
+          const response = await fetch('/api/amap/config', { cache: 'no-store' });
+          if (!response.ok) throw new Error('无法读取高德配置，请确认本地服务已启动。');
+          const config = await response.json();
+          if (!amap3dActive || requestId !== amap3dRequestId) return;
+          if (!config.configured || !config.key) {
+            setAmap3DStatus('等待配置', '请复制项目中的 .env.example 为 .env，填写高德 Web Key 和安全密钥，再重新进入高德3D。');
+            return;
+          }
+          const { loadAmap, createAmapScene } = await import('./amap-scene.js');
+          const AMap = await loadAmap(config.key);
+          if (!amap3dActive || requestId !== amap3dRequestId) return;
+          amap3dScene = createAmapScene(AMap, $('amap3d'), {
+            location: projectionLocation,
+            toAmap: wgsToGcj,
+            heightScale: street3dHeightScale,
+            onSelect: (trace) => { selectTrace(trace); togglePlay(); },
+            onStatus: (status, hint) => {
+              if (amap3dActive && requestId === amap3dRequestId) setAmap3DStatus(status, hint);
+            },
+          });
+          updateAmap3DMarkers();
+          syncAmap3DView();
+        } catch (error) {
+          if (!amap3dActive || requestId !== amap3dRequestId) return;
+          amap3dScene?.destroy();
+          amap3dScene = null;
+          setAmap3DStatus('连接失败', error.message || '高德地图加载失败，请检查网络和配置。');
+        }
+      }
+
+      function setAmap3DMode(active) {
+        if (active && real3dActive) setReal3DMode(false);
+        if (active && street3dActive) setStreet3DMode(false);
+        amap3dActive = active;
+        $('amap3d').hidden = !active;
+        $('amap3dTools').hidden = !active;
+        $('projectionAmap3d').textContent = active ? '退出高德3D' : '高德3D';
+        $('projectionAmap3d').classList.toggle('is-active', active);
+        $('projectionCanvas').style.display = (active || street3dActive || real3dActive) ? 'none' : 'block';
+        $('projectionNearby').style.display = (active || street3dActive || real3dActive) ? 'none' : '';
+        refreshProjectionControls();
+        if (active) {
+          stopProjectionCamera();
+          $('scenePhoto').style.display = 'none';
+          $('projectionPlaceholder').hidden = true;
+          connectAmap3D();
+        } else {
+          amap3dRequestId += 1;
+          amap3dScene?.destroy();
+          amap3dScene = null;
+          if (!street3dActive && !real3dActive && !projectionStream && !projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
         }
       }
 
@@ -829,6 +932,7 @@
       }
 
       function setReal3DMode(active) {
+        if (active && amap3dActive) setAmap3DMode(false);
         if (active && street3dActive) setStreet3DMode(false);
         real3dActive = active;
         $('real3d').hidden = !active;
@@ -837,12 +941,7 @@
         $('projectionReal3d').classList.toggle('is-active', active);
         $('projectionCanvas').style.display = (active || street3dActive) ? 'none' : 'block';
         $('projectionNearby').style.display = (active || street3dActive) ? 'none' : '';
-        $('projectionTerrain').disabled = active;
-        $('projectionHeight').disabled = active;
-        $('projectionLight').disabled = active;
-        $('projectionTerrain').title = active ? '实景模型包含原始地形，无法单独调整' : '';
-        $('projectionHeight').title = active ? '实景建筑使用原始高度' : '';
-        $('projectionLight').title = active ? '实景纹理使用原始光照' : '';
+        refreshProjectionControls();
         if (active) {
           stopProjectionCamera();
           $('scenePhoto').style.display = 'none';
@@ -1037,6 +1136,7 @@
           updateStreet3DSelection();
         }
         if (real3dActive) updateReal3DMarkers();
+        if (amap3dActive) updateAmap3DMarkers();
         $('statusDot').classList.add('is-live');
         $('statusText').textContent = mediaType === 'image' ? '已选择一张照片' : mediaType === 'video' ? '已选择一段视频' : '已选择一段声音';
       }
@@ -1078,6 +1178,7 @@
           updateStreet3DSelection();
         }
         if (real3dActive) updateReal3DMarkers();
+        if (amap3dActive) updateAmap3DMarkers();
       }
 
       function editCurrent() {
@@ -1664,6 +1765,7 @@
       $('closeProjection').addEventListener('click', closeProjection);
       $('projectionCamera').addEventListener('click', startProjectionCamera);
       $('projection3d').addEventListener('click', () => setStreet3DMode(!street3dActive));
+      $('projectionAmap3d').addEventListener('click', () => setAmap3DMode(!amap3dActive));
       $('projectionReal3d').addEventListener('click', () => setReal3DMode(!real3dActive));
       $('real3dSettings').addEventListener('click', () => {
         $('real3dSettingsPanel').hidden = !$('real3dSettingsPanel').hidden;
@@ -1733,6 +1835,7 @@
         renderProjection();
         if (street3dActive) syncStreet3DView();
         if (real3dActive) syncReal3DView();
+        if (amap3dActive) syncAmap3DView();
       });
       $('projectionFov').addEventListener('input', (event) => {
         projectionFov = Number(event.target.value);
@@ -1740,6 +1843,7 @@
         renderProjection();
         if (street3dActive) syncStreet3DView();
         if (real3dActive) syncReal3DView();
+        if (amap3dActive) syncAmap3DView();
       });
       $('projectionPitch').addEventListener('input', (event) => {
         projectionPitch = Number(event.target.value);
@@ -1747,11 +1851,13 @@
         renderProjection();
         if (street3dActive) syncStreet3DView();
         if (real3dActive) syncReal3DView();
+        if (amap3dActive) syncAmap3DView();
       });
       $('projectionHeight').addEventListener('input', (event) => {
         street3dHeightScale = Number(event.target.value);
         $('projectionHeightLabel').textContent = `${street3dHeightScale.toFixed(1)}×`;
         updateStreet3DBuildings();
+        if (amap3dActive) amap3dScene?.updateHeight(street3dHeightScale);
       });
       $('projectionLight').addEventListener('input', (event) => {
         street3dLight = Number(event.target.value);
@@ -1764,6 +1870,7 @@
           document.querySelectorAll('[data-camera-preset]').forEach((item) => item.classList.toggle('is-active', item === button));
           if (street3dActive) syncStreet3DView();
           if (real3dActive) syncReal3DView();
+          if (amap3dActive) syncAmap3DView();
         });
       });
       $('projectionTerrain').addEventListener('click', () => {

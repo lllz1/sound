@@ -396,6 +396,11 @@
       #scenePhoto { display: none; object-fit: contain; background: #050a11; }
       #projectionCanvas { z-index: 2; pointer-events: none; }
       .projection-stage > .street3d { position: absolute; z-index: 1; inset: 0; overflow: hidden; background: #050a11; }
+      .projection-stage > .amap3d { position: absolute; z-index: 1; inset: 0; overflow: hidden; background: #050a11; }
+      .amap3d-note { position: absolute; z-index: 4; top: 16px; left: 16px; width: min(330px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; padding: 14px; border: 1px solid var(--line-strong); border-radius: 14px; color: var(--text); background: rgba(7, 13, 22, 0.94); box-shadow: var(--shadow); }
+      .amap3d-note strong { color: var(--mint); font-size: 11px; }
+      .amap3d-note p { margin: 8px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+      .amap3d-note a { color: var(--mint); font-size: 10px; }
       .projection-stage > .real3d { position: absolute; z-index: 1; inset: 0; overflow: hidden; background: #050a11; }
       .real3d .cesium-viewer, .real3d .cesium-viewer-cesiumWidgetContainer, .real3d .cesium-widget, .real3d canvas { width: 100%; height: 100%; }
       .real3d .cesium-viewer-bottom { bottom: 5px; left: 8px; }
