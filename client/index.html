@@ -193,6 +193,26 @@
         <img id="scenePhoto" alt="现场照片" />
         <canvas id="projectionCanvas"></canvas>
         <div class="street3d" id="street3d" hidden></div>
+        <aside class="street3d-panel" id="street3dPanel" hidden aria-label="3D街景操作">
+          <div class="street3d-panel__top">
+            <div><strong>3D 街景</strong><small>建筑示意 · OpenStreetMap</small></div>
+            <div class="street3d-themes" aria-label="街景配色">
+              <button type="button" class="is-active" data-street-theme="clear" aria-pressed="true">清晰</button>
+              <button type="button" data-street-theme="night" aria-pressed="false">夜色</button>
+            </div>
+          </div>
+          <p>拖动移动 · 右键旋转和倾斜 · 滚轮缩放</p>
+          <button class="street3d-recenter" id="street3dRecenter" type="button">回到观察点</button>
+          <button class="street3d-recenter" id="street3dRetry" type="button" hidden>重新加载地图</button>
+          <details class="street3d-nearby" id="street3dNearby">
+            <summary id="street3dNearbyTitle">附近的记录</summary>
+            <div class="street3d-nearby__list" id="street3dNearbyList"></div>
+          </details>
+          <div class="street3d-selected" id="street3dSelected" hidden>
+            <div><small>当前记录</small><strong id="street3dSelectedTitle"></strong></div>
+            <button id="street3dPlay" type="button">播放</button>
+          </div>
+        </aside>
         <div class="amap3d" id="amap3d" hidden></div>
         <div class="amap3d-note" id="amap3dTools" hidden>
           <strong>高德地图 · 3D 楼块</strong>
@@ -244,7 +264,7 @@
             <button class="secondary-btn" data-camera-preset="aerial">鸟瞰</button>
             <button class="secondary-btn" data-camera-preset="panorama">全景</button>
           </div>
-          <button class="secondary-btn is-active" id="projectionTerrain">地形</button>
+          <button class="secondary-btn" id="projectionTerrain" title="开启高程地形；如画面出现突起，可再次点击关闭">地形</button>
           <label class="heading-control"><span>朝向</span><input id="projectionHeading" type="range" min="0" max="360" value="0" step="1" /><strong id="projectionHeadingLabel">0°</strong></label>
           <label class="heading-control" title="3D 模式下控制镜头广度，数值越小越聚焦"><span>视野</span><input id="projectionFov" type="range" min="55" max="110" value="90" step="1" /><strong id="projectionFovLabel">90°</strong></label>
           <label class="heading-control"><span>俯仰</span><input id="projectionPitch" type="range" min="-15" max="15" value="0" step="1" /><strong id="projectionPitchLabel">0°</strong></label>
