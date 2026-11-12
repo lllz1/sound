@@ -4,14 +4,14 @@
 
 ## 技术栈
 
-- 前端：Vite + 原生 JavaScript，Leaflet + 高德栅格底图
+- 前端：Vite + 原生 JavaScript，Leaflet + 高德栅格底图，CesiumJS 实景三维
 - 后端：Node.js + Express + Multer
 - 数据：JSON 文件持久化，音频保存到 `server/uploads`
 - 坐标：前端存储 WGS84，地图展示时转换为 GCJ-02
 
 ## 启动
 
-需要 Node.js 20 以上。
+需要 Node.js 20.19.x 或 22.12 及以上。
 
 ```powershell
 npm install
@@ -36,6 +36,8 @@ Vite 运行在 `http://127.0.0.1:5173/`，API 和上传目录代理到 `http://1
 - 地点搜索，后端代理 Nominatim / Photon
 - 现场投影：摄像头或现场照片作为背景，按地平面透视、距离、方位、视野和俯仰叠加声音标记
 - 3D 街区：MapLibre + OpenFreeMap 矢量瓦片实时挤出 OSM 建筑，节点按真实经纬度落在 3D 场景中
+- 实景 3D：可配置 Google Maps API Key，加载摄影测量三维瓦片，并在场景中查看和点击附近的声音、视频与图片节点
+- 实景 3D 支持 Google 地点搜索、重新定位、朝向/视野/俯仰调节和镜头预设；没有密钥时仍可切换回原有 3D 街景
 - 3D 场景增强：建筑高度分层、垂直明暗、场景光照、天空/地平线配色、建筑轮廓线
 - 建筑窗格与楼层纹理、真实地形高程、节点到观察点的 3D 路径提示
 - 镜头预设：街景、鸟瞰、全景；支持楼高倍率和光照强度调节
@@ -77,6 +79,15 @@ legacy/
 - `DELETE /api/traces/:id`
 - `GET /api/geocode?q=`
 - `GET /api/health`
+
+## 配置 Google 实景三维
+
+1. 在 [Google Cloud 控制台](https://console.cloud.google.com/)创建项目并绑定结算账号，启用 **Map Tiles API**。如需使用实景界面中的地点搜索，还须启用 **Maps JavaScript API** 和 **Geocoding API**。
+2. 按 [Google 官方说明](https://developers.google.com/maps/documentation/tile/get-api-key)创建浏览器使用的 API Key。建议设置网站来源限制（本地运行时包括 `http://127.0.0.1:8088/*` 和/或 `http://localhost:8088/*`；开发模式另加 `http://localhost:5173/*`），并限制允许使用的 API。
+3. 启动项目，点击「现场投影」→「实景3D」→「密钥设置」，输入密钥并点击「保存并连接」。密钥保存在当前浏览器的本地存储中，不会写入仓库或应用服务器；点击「清除密钥」可以移除。浏览器会直接使用密钥请求 Google，因此该密钥对浏览器用户可见，务必配置来源、API 和配额限制。
+4. 初始观察点为地图中心；也可以点击「重新定位」，或者在实景界面使用 Google 地点搜索。拖动地图可调整角度，「视野」和镜头预设会调整三维镜头。实景建筑的楼高、光照和地形来自原始模型，不能由原有模型滑杆调整。
+
+Photorealistic 3D Tiles 是部分地区覆盖的摄影测量模型，不保证衡阳或其他指定位置有数据；也需要能够访问 Google 服务的网络。若区域无数据、密钥无效、API 未启用或网络不可达，可切换回「3D街景」。建议先在已知有覆盖的地区验证密钥。Google 服务可能收费，请查看 [定价](https://developers.google.com/maps/billing-and-pricing/pricing) 和 [服务政策](https://developers.google.com/maps/documentation/tile/policies)。实景中的节点位置为经纬度近似投影，不能视为精确测绘或真实遮挡。
 
 ## 说明
 

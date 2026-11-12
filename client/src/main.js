@@ -104,6 +104,12 @@
       let street3dPreset = 'street';
       let street3dSyncingCamera = false;
       let street3dTerrain = true;
+      let real3dActive = false;
+      let real3dScene = null;
+      let real3dRequestId = 0;
+      let real3dStatus = '等待配置';
+      let real3dKey = '';
+      try { real3dKey = localStorage.getItem('soundtrace-google-maps-key') || ''; } catch { /* storage may be disabled */ }
 
       async function loadTraces() {
         const response = await fetch('/api/traces');
@@ -211,6 +217,11 @@
         ctx.clearRect(0, 0, width, height);
         projectionHits = [];
         if (!projectionLocation) return;
+
+        if (real3dActive) {
+          $('projectionStatus').textContent = `实景3D · ${real3dStatus} · 视野 ${projectionFov}°`;
+          return;
+        }
 
         const activeFov = Number($('projectionFov').value) || projectionFov;
         const fovRad = activeFov * Math.PI / 180;
@@ -349,6 +360,7 @@
       }
 
       async function startProjectionCamera() {
+        setReal3DMode(false);
         setStreet3DMode(false);
         if (projectionStream) {
           stopProjectionCamera();
@@ -380,6 +392,7 @@
 
       function useProjectionPhoto(file) {
         if (!file) return;
+        setReal3DMode(false);
         setStreet3DMode(false);
         stopProjectionCamera();
         if (projectionPhotoUrl) URL.revokeObjectURL(projectionPhotoUrl);
@@ -403,6 +416,11 @@
               updateStreet3DMarkers();
               syncStreet3DView();
             }
+            if (real3dActive) {
+              updateReal3DMarkers();
+              syncReal3DView();
+              $('real3dHint').textContent = `已定位，精度约 ${Math.round(position.coords.accuracy)} 米；实景数据覆盖因地点而异。`;
+            }
           },
           () => showToast('定位失败，可以在设置里允许位置权限'),
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -410,6 +428,7 @@
       }
 
       function openProjection() {
+        setReal3DMode(false);
         setStreet3DMode(false);
         projectionLocation = map ? fromMapPoint(map.getCenter()) : { lat: 31.2304, lng: 121.4737 };
         projectionUseOrientation = true;
@@ -438,6 +457,7 @@
 
       function closeProjection() {
         stopProjectionCamera();
+        setReal3DMode(false);
         setStreet3DMode(false);
         if (street3dMap) {
           street3dMap.remove();
@@ -732,6 +752,7 @@
       }
 
       function setStreet3DMode(active) {
+        if (active && real3dActive) setReal3DMode(false);
         street3dActive = active;
         $('street3d').hidden = !active;
         $('projectionCanvas').style.display = active ? 'none' : 'block';
@@ -750,7 +771,92 @@
           }, 60);
           $('projectionStatus').textContent = '3D街景 · 建筑数据来自 OpenStreetMap';
         } else {
+          $('street3dLoading').hidden = true;
           if (!projectionStream && !projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
+        }
+      }
+
+      function real3dSetStatus(status, hint) {
+        real3dStatus = status;
+        if (hint) $('real3dHint').textContent = hint;
+        renderProjection();
+      }
+
+      function syncReal3DView() {
+        if (!real3dActive || !real3dScene || !projectionLocation) return;
+        real3dScene.updateView({ location: projectionLocation, heading: projectionHeading, pitch: projectionPitch, fov: projectionFov, preset: street3dPreset });
+      }
+
+      function updateReal3DMarkers() {
+        if (!real3dScene || !projectionLocation) return;
+        const nearby = allTraces.filter((trace) => distanceMeters(projectionLocation.lat, projectionLocation.lng, trace.lat, trace.lng) <= PROJECTION_MAX_DISTANCE);
+        real3dScene.updateMarkers(projectionLocation, nearby, current?.id);
+      }
+
+      async function connectReal3D() {
+        const requestId = ++real3dRequestId;
+        real3dScene?.destroy();
+        real3dScene = null;
+        if (!real3dActive || !real3dKey) return;
+        real3dSetStatus('正在连接', '正在加载实景三维，请稍候…');
+        let timeout;
+        try {
+          const { createRealScene } = await import('./real-scene.js');
+          if (!real3dActive || requestId !== real3dRequestId) return;
+          real3dScene = createRealScene($('real3d'), {
+            key: real3dKey,
+            onSelect: (trace) => { selectTrace(trace); togglePlay(); },
+            onStatus: (status, hint) => {
+              if (real3dActive && requestId === real3dRequestId) real3dSetStatus(status, hint);
+            },
+          });
+          updateReal3DMarkers();
+          syncReal3DView();
+          real3dScene.resize();
+          await Promise.race([
+            real3dScene.ready,
+            new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('timeout')), 25000); }),
+          ]);
+        } catch {
+          if (!real3dActive || requestId !== real3dRequestId) return;
+          real3dScene?.destroy();
+          real3dScene = null;
+          real3dSetStatus('连接失败', '请检查网络、Key、Map Tiles API 和结算状态；也可切换到 3D 街景。');
+          $('real3dSettingsPanel').hidden = false;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+
+      function setReal3DMode(active) {
+        if (active && street3dActive) setStreet3DMode(false);
+        real3dActive = active;
+        $('real3d').hidden = !active;
+        $('real3dTools').hidden = !active;
+        $('projectionReal3d').textContent = active ? '退出实景3D' : '实景3D';
+        $('projectionReal3d').classList.toggle('is-active', active);
+        $('projectionCanvas').style.display = (active || street3dActive) ? 'none' : 'block';
+        $('projectionNearby').style.display = (active || street3dActive) ? 'none' : '';
+        $('projectionTerrain').disabled = active;
+        $('projectionHeight').disabled = active;
+        $('projectionLight').disabled = active;
+        $('projectionTerrain').title = active ? '实景模型包含原始地形，无法单独调整' : '';
+        $('projectionHeight').title = active ? '实景建筑使用原始高度' : '';
+        $('projectionLight').title = active ? '实景纹理使用原始光照' : '';
+        if (active) {
+          stopProjectionCamera();
+          $('scenePhoto').style.display = 'none';
+          $('projectionPlaceholder').hidden = true;
+          $('real3dKey').value = '';
+          $('real3dSettingsPanel').hidden = Boolean(real3dKey);
+          if (real3dKey) connectReal3D();
+          else real3dSetStatus('等待密钥', '请先设置 Google Maps API Key。');
+        } else {
+          real3dRequestId += 1;
+          real3dScene?.destroy();
+          real3dScene = null;
+          $('real3dKey').value = '';
+          if (!street3dActive && !projectionStream && !projectionPhotoUrl) $('projectionPlaceholder').hidden = false;
         }
       }
 
@@ -930,6 +1036,7 @@
           updateStreet3DRoute(trace);
           updateStreet3DSelection();
         }
+        if (real3dActive) updateReal3DMarkers();
         $('statusDot').classList.add('is-live');
         $('statusText').textContent = mediaType === 'image' ? '已选择一张照片' : mediaType === 'video' ? '已选择一段视频' : '已选择一段声音';
       }
@@ -970,6 +1077,7 @@
           updateStreet3DRoute(null);
           updateStreet3DSelection();
         }
+        if (real3dActive) updateReal3DMarkers();
       }
 
       function editCurrent() {
@@ -1556,6 +1664,55 @@
       $('closeProjection').addEventListener('click', closeProjection);
       $('projectionCamera').addEventListener('click', startProjectionCamera);
       $('projection3d').addEventListener('click', () => setStreet3DMode(!street3dActive));
+      $('projectionReal3d').addEventListener('click', () => setReal3DMode(!real3dActive));
+      $('real3dSettings').addEventListener('click', () => {
+        $('real3dSettingsPanel').hidden = !$('real3dSettingsPanel').hidden;
+      });
+      $('real3dSaveKey').addEventListener('click', () => {
+        const key = $('real3dKey').value.trim();
+        if (key.length < 8 || key.length > 256 || /\s/.test(key)) {
+          $('real3dHint').textContent = '请输入有效格式的 API Key。';
+          return;
+        }
+        real3dKey = key;
+        try { localStorage.setItem('soundtrace-google-maps-key', key); } catch { showToast('浏览器未允许保存密钥，本次仍可尝试连接'); }
+        $('real3dKey').value = '';
+        $('real3dSettingsPanel').hidden = true;
+        connectReal3D();
+      });
+      $('real3dClearKey').addEventListener('click', () => {
+        try { localStorage.removeItem('soundtrace-google-maps-key'); } catch { /* storage may be disabled */ }
+        real3dKey = '';
+        real3dRequestId += 1;
+        real3dScene?.destroy();
+        real3dScene = null;
+        $('real3dKey').value = '';
+        $('real3dSettingsPanel').hidden = false;
+        real3dSetStatus('等待密钥', '本浏览器保存的密钥已清除。');
+      });
+      $('real3dSearch').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!real3dKey) {
+          $('real3dSettingsPanel').hidden = false;
+          real3dSetStatus('等待密钥', '请先设置 Google Maps API Key。');
+          return;
+        }
+        const query = $('real3dSearchInput').value.trim();
+        if (!query) return;
+        const requestId = real3dRequestId;
+        $('real3dHint').textContent = '正在搜索地点…';
+        try {
+          const { geocodeWithGoogle } = await import('./google-geocoder.js');
+          const place = await geocodeWithGoogle(real3dKey, query);
+          if (!real3dActive || requestId !== real3dRequestId) return;
+          projectionLocation = { lat: place.lat, lng: place.lng };
+          updateReal3DMarkers();
+          syncReal3DView();
+          $('real3dHint').textContent = `已定位到 ${place.name}。实景数据覆盖因地点而异。`;
+        } catch (error) {
+          if (real3dActive && requestId === real3dRequestId) $('real3dHint').textContent = error.message || '搜索失败，请稍后重试。';
+        }
+      });
       $('projectionLocate').addEventListener('click', locateProjection);
       $('projectionUpload').addEventListener('click', () => $('projectionPhotoInput').click());
       $('projectionPhotoInput').addEventListener('change', (event) => useProjectionPhoto(event.target.files?.[0]));
@@ -1575,18 +1732,21 @@
         setProjectionHeading(event.target.value);
         renderProjection();
         if (street3dActive) syncStreet3DView();
+        if (real3dActive) syncReal3DView();
       });
       $('projectionFov').addEventListener('input', (event) => {
         projectionFov = Number(event.target.value);
         $('projectionFovLabel').textContent = `${projectionFov}°`;
         renderProjection();
         if (street3dActive) syncStreet3DView();
+        if (real3dActive) syncReal3DView();
       });
       $('projectionPitch').addEventListener('input', (event) => {
         projectionPitch = Number(event.target.value);
         $('projectionPitchLabel').textContent = `${projectionPitch}°`;
         renderProjection();
         if (street3dActive) syncStreet3DView();
+        if (real3dActive) syncReal3DView();
       });
       $('projectionHeight').addEventListener('input', (event) => {
         street3dHeightScale = Number(event.target.value);
@@ -1603,6 +1763,7 @@
           street3dPreset = button.dataset.cameraPreset;
           document.querySelectorAll('[data-camera-preset]').forEach((item) => item.classList.toggle('is-active', item === button));
           if (street3dActive) syncStreet3DView();
+          if (real3dActive) syncReal3DView();
         });
       });
       $('projectionTerrain').addEventListener('click', () => {

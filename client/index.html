@@ -193,6 +193,29 @@
         <img id="scenePhoto" alt="现场照片" />
         <canvas id="projectionCanvas"></canvas>
         <div class="street3d" id="street3d" hidden></div>
+        <div class="real3d" id="real3d" hidden></div>
+        <div class="real3d-tools" id="real3dTools" hidden>
+          <div class="real3d-tools__bar">
+            <span>GOOGLE MAPS · 实景三维</span>
+            <button class="secondary-btn" id="real3dSettings" type="button">密钥设置</button>
+          </div>
+          <form id="real3dSearch" class="real3d-search">
+            <input id="real3dSearchInput" aria-label="搜索实景地点" placeholder="搜索实景地点" autocomplete="off" />
+            <button class="secondary-btn" type="submit">搜索</button>
+          </form>
+          <p class="real3d-hint" id="real3dHint" role="status">请先设置 Google Maps API Key。</p>
+          <div class="real3d-settings" id="real3dSettingsPanel" hidden>
+            <label for="real3dKey">Google Maps API Key</label>
+            <input id="real3dKey" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你的 API Key" />
+            <p>密钥保存在当前浏览器，并由浏览器直接访问 Google。请在 Google Cloud 中限制网站来源和 API。</p>
+            <p>需要启用 Map Tiles API；使用实景搜索还需启用 Maps JavaScript API 和 Geocoding API。服务可能产生费用。</p>
+            <div class="real3d-actions">
+              <button class="secondary-btn" id="real3dSaveKey" type="button">保存并连接</button>
+              <button class="secondary-btn" id="real3dClearKey" type="button">清除密钥</button>
+              <a href="https://developers.google.com/maps/documentation/tile/get-api-key" target="_blank" rel="noopener noreferrer">获取密钥 ↗</a>
+            </div>
+          </div>
+        </div>
         <div class="street3d-loading" id="street3dLoading" hidden>
           <span class="spinner"></span>
           <span>正在构建 3D 街区…</span>
@@ -224,6 +247,7 @@
           <button class="secondary-btn" id="projectionLocate">重新定位</button>
           <button class="secondary-btn" id="projectionCamera">开启相机</button>
           <button class="secondary-btn" id="projection3d">3D街景</button>
+          <button class="secondary-btn" id="projectionReal3d">实景3D</button>
           <button class="secondary-btn" id="projectionUpload">上传照片</button>
           <input id="projectionPhotoInput" type="file" accept="image/*" hidden />
         </div>
