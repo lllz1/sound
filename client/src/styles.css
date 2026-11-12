@@ -405,6 +405,16 @@
       .street3d-themes button, .street3d-recenter, .street3d-selected button { padding: 6px 9px; color: var(--muted); border: 0; border-radius: 99px; background: transparent; font-size: 10px; white-space: nowrap; cursor: pointer; }
       .street3d-themes button.is-active { color: #07110f; background: var(--mint); }
       .street3d-recenter, .street3d-selected button { color: var(--mint); border: 1px solid rgba(126, 240, 210, .24); }
+      .street3d-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .street3d-recenter[aria-pressed="true"] { color: #07110f; background: var(--mint); }
+      .street3d-walk { margin-top: 10px; padding-top: 1px; border-top: 1px solid var(--line); }
+      .street3d-walk__buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+      .street3d-walk__buttons button { min-height: 32px; padding: 5px 2px; color: var(--text); border: 1px solid rgba(126, 240, 210, .25); border-radius: 8px; background: rgba(126, 240, 210, .07); font-size: 10px; cursor: pointer; }
+      .street3d-walk__buttons button:hover, .street3d-walk__buttons button:focus-visible { background: rgba(126, 240, 210, .2); }
+      .street3d.is-picking .maplibregl-canvas { cursor: crosshair !important; }
+      .street3d.is-walking .maplibregl-canvas { cursor: grab; touch-action: none; }
+      .street3d.is-walking .maplibregl-canvas:active { cursor: grabbing; }
+      .street3d.is-walking .maplibregl-ctrl-group { display: none; }
       .street3d-nearby { margin-top: 10px; border-top: 1px solid var(--line); }
       .street3d-nearby summary { padding-top: 10px; color: var(--text); font-size: 10px; cursor: pointer; }
       .street3d-nearby__list { max-height: 180px; overflow-y: auto; margin-top: 8px; }

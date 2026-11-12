@@ -201,9 +201,22 @@
               <button type="button" data-street-theme="night" aria-pressed="false">夜色</button>
             </div>
           </div>
-          <p>拖动移动 · 右键旋转和倾斜 · 滚轮缩放</p>
-          <button class="street3d-recenter" id="street3dRecenter" type="button">回到观察点</button>
+          <p id="street3dInstructions">拖动移动 · 右键旋转和倾斜 · 滚轮缩放</p>
+          <div class="street3d-actions">
+            <button class="street3d-recenter" id="street3dRecenter" type="button">回到观察点</button>
+            <button class="street3d-recenter" id="street3dChoosePoint" type="button" aria-pressed="false">选观察点</button>
+            <button class="street3d-recenter" id="street3dWalk" type="button" aria-pressed="false">进入漫游</button>
+          </div>
           <button class="street3d-recenter" id="street3dRetry" type="button" hidden>重新加载地图</button>
+          <div class="street3d-walk" id="street3dWalkControls" hidden>
+            <p>模型漫游 · 拖动画面环顾 · W/S 前后 · A/D 转向<br /><span id="street3dWalkDistance" aria-live="polite">累计模拟 0 m</span> · 道路与建筑仅供示意</p>
+            <div class="street3d-walk__buttons" aria-label="漫游方向">
+              <button type="button" data-street-walk="left" aria-label="向左转">↶ 左转</button>
+              <button type="button" data-street-walk="forward" aria-label="向前走">↑ 前进</button>
+              <button type="button" data-street-walk="backward" aria-label="向后走">↓ 后退</button>
+              <button type="button" data-street-walk="right" aria-label="向右转">右转 ↷</button>
+            </div>
+          </div>
           <details class="street3d-nearby" id="street3dNearby">
             <summary id="street3dNearbyTitle">附近的记录</summary>
             <div class="street3d-nearby__list" id="street3dNearbyList"></div>
