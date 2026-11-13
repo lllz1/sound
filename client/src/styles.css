@@ -417,6 +417,13 @@
       .street3d-themes button.is-active { color: #07110f; background: var(--mint); }
       .street3d-recenter, .street3d-selected button { color: var(--mint); border: 1px solid rgba(126, 240, 210, .24); }
       .street3d-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .street3d-panel .street3d-position { color: #b7d3d0; overflow-wrap: anywhere; }
+      .street3d-coordinate { margin-top: 8px; border-top: 1px solid var(--line); }
+      .street3d-coordinate summary { padding-top: 9px; color: var(--text); font-size: 10px; cursor: pointer; }
+      .street3d-coordinate form p { margin: 8px 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+      .street3d-coordinate__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 7px 0; }
+      .street3d-coordinate__fields label { min-width: 0; color: var(--muted); font-size: 10px; }
+      .street3d-coordinate__fields input { display: block; width: 100%; min-width: 0; margin-top: 4px; padding: 7px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text); background: rgba(255, 255, 255, .04); font-size: 11px; }
       .street3d-recenter[aria-pressed="true"] { color: #07110f; background: var(--mint); }
       .street3d-walk { margin-top: 10px; padding-top: 1px; border-top: 1px solid var(--line); }
       .street3d-walk__buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
@@ -452,6 +459,10 @@
       .real3d-search input { flex: 1; }
       .real3d-search button, .real3d-actions button { white-space: nowrap; }
       .real3d-hint, .real3d-settings p { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+      .open3d-building { margin-top: 9px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; }
+      .open3d-building strong { color: var(--text); font-size: 10px; }
+      .open3d-building p, .open3d-attribution { margin: 6px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+      .open3d-attribution a { color: var(--mint); }
       .real3d-settings { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
       .real3d-settings label { display: block; margin-bottom: 7px; color: var(--text); font-size: 11px; }
       .real3d-actions { flex-wrap: wrap; }

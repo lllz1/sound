@@ -153,8 +153,8 @@
         <div class="field"><label for="editName">标题</label><input id="editName" maxlength="32" /></div>
         <div class="field"><label for="editMeta">描述</label><input id="editMeta" maxlength="64" placeholder="例如：江风 · 傍晚 · 4 秒" /></div>
         <div class="coord-row">
-          <div class="field"><label for="editLat">纬度</label><input id="editLat" type="number" step="0.0001" /></div>
-          <div class="field"><label for="editLng">经度</label><input id="editLng" type="number" step="0.0001" /></div>
+          <div class="field"><label for="editLat">纬度</label><input id="editLat" type="number" step="any" /></div>
+          <div class="field"><label for="editLng">经度</label><input id="editLng" type="number" step="any" /></div>
         </div>
         <button class="secondary-btn" id="useMapCenter">使用地图中心坐标</button>
         <div class="record-actions"><button class="secondary-btn" id="cancelEdit">取消</button><button class="primary-btn" id="saveEdit">保存修改</button></div>
@@ -213,6 +213,18 @@
             <button class="street3d-recenter" id="street3dChoosePoint" type="button" aria-pressed="false">选观察点</button>
             <button class="street3d-recenter" id="street3dWalk" type="button" aria-pressed="false">进入漫游</button>
           </div>
+          <p id="street3dPosition" class="street3d-position" aria-live="polite">观察点坐标正在准备…</p>
+          <details class="street3d-coordinate">
+            <summary>按经纬度调整观察点</summary>
+            <form id="street3dCoordinateForm">
+              <p>请输入 WGS84 坐标；设备定位精度取决于定位信号。</p>
+              <div class="street3d-coordinate__fields">
+                <label>纬度<input id="street3dLatitude" type="number" step="any" min="-85.051129" max="85.051129" required /></label>
+                <label>经度<input id="street3dLongitude" type="number" step="any" min="-180" max="180" required /></label>
+              </div>
+              <button class="street3d-recenter" type="submit">设置观察点</button>
+            </form>
+          </details>
           <button class="street3d-recenter" id="street3dRetry" type="button" hidden>重新加载地图</button>
           <div class="street3d-walk" id="street3dWalkControls" hidden>
             <p>模型漫游 · 拖动画面环顾 · W/S 前后 · A/D 转向<br /><span id="street3dWalkDistance" aria-live="polite">累计模拟 0 m</span> · 道路与建筑仅供示意</p>
@@ -241,7 +253,7 @@
         <div class="real3d" id="real3d" hidden></div>
         <div class="real3d-tools" id="real3dTools" hidden>
           <div class="real3d-tools__bar">
-            <span>GOOGLE MAPS · 实景三维</span>
+            <span id="real3dTitle">GOOGLE MAPS · 实景三维</span>
             <button class="secondary-btn" id="real3dSettings" type="button">密钥设置</button>
           </div>
           <form id="real3dSearch" class="real3d-search">
@@ -249,6 +261,29 @@
             <button class="secondary-btn" type="submit">搜索</button>
           </form>
           <p class="real3d-hint" id="real3dHint" role="status">请先设置 Google Maps API Key。</p>
+          <div id="open3dControls" hidden>
+            <p class="real3d-hint" id="open3dPosition">观察点坐标正在准备…</p>
+            <div class="street3d-actions">
+              <button class="street3d-recenter" id="open3dChoosePoint" type="button" aria-pressed="false">选观察点</button>
+              <button class="street3d-recenter" id="open3dRetry" type="button">重新加载模型</button>
+            </div>
+            <div class="open3d-building" id="open3dBuilding" hidden>
+              <strong id="open3dBuildingName">建筑信息</strong>
+              <p id="open3dBuildingDetails"></p>
+            </div>
+            <details class="street3d-coordinate">
+              <summary>按经纬度调整观察点</summary>
+              <form id="open3dCoordinateForm">
+                <p>请输入 WGS84 坐标。</p>
+                <div class="street3d-coordinate__fields">
+                  <label>纬度<input id="open3dLatitude" type="number" step="any" min="-85.051129" max="85.051129" required /></label>
+                  <label>经度<input id="open3dLongitude" type="number" step="any" min="-180" max="180" required /></label>
+                </div>
+                <button class="street3d-recenter" type="submit">设置观察点</button>
+              </form>
+            </details>
+            <p class="open3d-attribution">建筑 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, <a href="https://overturemaps.org/" target="_blank" rel="noopener noreferrer">Overture Maps Foundation</a> (ODbL)。地形 © <a href="https://terrain.reearth.land/" target="_blank" rel="noopener noreferrer">Re:Earth Terrain</a> (Mapterhorn / EGM2008)。</p>
+          </div>
           <div class="real3d-settings" id="real3dSettingsPanel" hidden>
             <label for="real3dKey">Google Maps API Key</label>
             <input id="real3dKey" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你的 API Key" />
@@ -293,6 +328,7 @@
           <button class="secondary-btn" id="projectionCamera">开启相机</button>
           <button class="secondary-btn" id="projection3d">3D街景</button>
           <button class="secondary-btn" id="projectionAmap3d">高德3D</button>
+          <button class="secondary-btn" id="projectionOpen3d">开放3D</button>
           <button class="secondary-btn" id="projectionReal3d">实景3D</button>
           <button class="secondary-btn" id="projectionUpload">上传照片</button>
           <input id="projectionPhotoInput" type="file" accept="image/*" hidden />
