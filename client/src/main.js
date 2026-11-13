@@ -1,6 +1,7 @@
       import * as maplibregl from 'maplibre-gl'
       import 'maplibre-gl/dist/maplibre-gl.css'
       import { STREET_CAMERA_PRESETS, destinationPoint, nextStreetCamera, streetWalkAction, verticalFieldOfView } from './street3d-camera.js'
+      import { createPublishedHistory, PUBLISHED_HISTORY_KEY } from './published-history.js'
 
       maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs')
 
@@ -56,6 +57,8 @@
       const fromMapPoint = (latlng) => gcjToWgs(latlng.lat, latlng.lng);
       let allTraces = [];
       let current = null;
+      const publishedHistory = createPublishedHistory(() => window.localStorage);
+      let historyView = 'device';
       let map = null;
       let markers = new Map();
       let audioContext = null;
@@ -1396,7 +1399,6 @@
 
       function updateCount() {
         $('markerCount').textContent = `${allTraces.length} 条记录`;
-        $('recentCount').textContent = String(allTraces.length);
       }
 
       function updateZoom() {
@@ -1473,6 +1475,7 @@
         $('playerMeta').textContent = '点击地图上的光点';
         $('playerTime').textContent = '00:00';
         $('playerKind').textContent = 'LOCAL / SEED';
+        $('saveToHistory').hidden = true;
         $('waveform').style.display = 'flex';
         $('playBtn').disabled = true;
         $('cardBtn').disabled = true;
@@ -1519,6 +1522,7 @@
           });
           if (!response.ok) throw new Error('更新失败');
           Object.assign(editingTrace, await response.json());
+          if (publishedHistory.read().some((item) => item.id === editingTrace.id)) publishedHistory.add(editingTrace);
           addTraceMarker(editingTrace);
           selectTrace(editingTrace);
           $('editModal').hidden = true;
@@ -1652,14 +1656,60 @@
       function renderRecent() {
         const list = $('recentList');
         list.innerHTML = '';
-        allTraces.slice(-5).reverse().forEach((trace) => {
+        const entries = publishedHistory.read();
+        const onDevice = current && entries.some((entry) => entry.id === current.id);
+        $('saveToHistory').hidden = !current || current.type === 'seed';
+        $('saveToHistory').disabled = Boolean(onDevice);
+        $('saveToHistory').textContent = onDevice ? '已加入本机记录' : '加入本机记录';
+        const localView = historyView === 'device';
+        $('deviceHistoryTab').setAttribute('aria-selected', String(localView));
+        $('latestHistoryTab').setAttribute('aria-selected', String(!localView));
+        list.setAttribute('aria-labelledby', localView ? 'deviceHistoryTab' : 'latestHistoryTab');
+        $('recentCount').textContent = String(localView ? entries.length : allTraces.length);
+        $('historyNote').textContent = localView
+          ? (publishedHistory.isPersistent() ? '记录保存在当前浏览器和网址，媒体保存在服务端。' : '浏览器不允许保存记录，关闭页面后将丢失。')
+          : '地图上的最新记录，所有访问此服务的设备可见。';
+
+        const tracesById = new Map(allTraces.map((trace) => [trace.id, trace]));
+        const items = localView
+          ? entries.map((entry) => ({ entry, trace: tracesById.get(entry.id) }))
+          : allTraces.slice(-5).reverse().map((trace) => ({ trace }));
+        if (!items.length) {
+          const empty = document.createElement('p');
+          empty.className = 'history-empty';
+          empty.textContent = localView ? '还没有本机记录。新发布的内容会自动加入，旧内容可选中后手动加入。' : '地图上还没有记录。';
+          list.appendChild(empty);
+          return;
+        }
+        items.forEach(({ entry, trace }) => {
+          const row = document.createElement('div');
+          row.className = 'history-row';
           const button = document.createElement('button');
-          button.className = `recent-item ${current?.id === trace.id ? 'is-active' : ''}`;
-          const mediaType = trace.mediaType || 'audio';
-          const icon = mediaType === 'video' ? '▶' : mediaType === 'image' ? '◧' : trace.type === 'seed' ? '◉' : '●';
-          button.innerHTML = `<span class="recent-icon recent-${mediaType}">${icon}</span><span class="recent-copy"><strong>${escapeHtml(trace.title)}</strong><span>${escapeHtml(trace.meta || trace.kindLabel || '')}</span></span>`;
-          button.addEventListener('click', () => selectTrace(trace));
-          list.appendChild(button);
+          button.type = 'button';
+          button.className = `recent-item ${trace && current?.id === trace.id ? 'is-active' : ''}`;
+          button.disabled = !trace;
+          const mediaType = trace?.mediaType || entry?.mediaType || 'audio';
+          const icon = mediaType === 'video' ? '▶' : mediaType === 'image' ? '◧' : trace?.type === 'seed' ? '◉' : '●';
+          const title = trace?.title || entry?.title || '未命名记录';
+          const detail = trace ? (trace.meta || trace.kindLabel || '') : '记录已删除或暂时无法访问';
+          button.innerHTML = `<span class="recent-icon recent-${mediaType}">${icon}</span><span class="recent-copy"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></span>`;
+          if (trace) button.addEventListener('click', () => selectTrace(trace));
+          row.appendChild(button);
+          if (localView) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'history-remove';
+            remove.textContent = '移除';
+            remove.setAttribute('aria-label', `从本机记录移除${title}`);
+            remove.title = '仅移除本机记录，不删除地图内容';
+            remove.addEventListener('click', () => {
+              const result = publishedHistory.remove(entry.id);
+              renderRecent();
+              showToast(result.persisted ? '已从本机记录移除' : '已移除，但浏览器不允许保存更改');
+            });
+            row.appendChild(remove);
+          }
+          list.appendChild(row);
         });
       }
 
@@ -1984,11 +2034,14 @@
           const response = await fetch('/api/traces', { method: 'POST', body: form });
           if (!response.ok) throw new Error('上传失败');
           const trace = await response.json();
+          const historyResult = publishedHistory.add(trace);
           allTraces.push(trace);
           addTraceMarker(trace);
           selectTrace(trace);
           closeRecord();
-          showToast(pendingMediaType === 'image' ? '照片已经留在这一带' : pendingMediaType === 'video' ? '视频已经留在这一带' : '声音已经留在这一带');
+          showToast(historyResult.persisted
+            ? (trace.mediaType === 'image' ? '照片已经留在这一带' : trace.mediaType === 'video' ? '视频已经留在这一带' : '声音已经留在这一带')
+            : '内容已发布，但浏览器无法持久保存本机记录');
         } catch {
           $('recordError').textContent = '上传失败，请检查服务端是否启动。';
         } finally {
@@ -2072,6 +2125,18 @@
         playSeed(allTraces[0]);
       });
       $('projectBtn').addEventListener('click', openProjection);
+      $('deviceHistoryTab').addEventListener('click', () => { historyView = 'device'; renderRecent(); });
+      $('latestHistoryTab').addEventListener('click', () => { historyView = 'latest'; renderRecent(); });
+      $('saveToHistory').addEventListener('click', () => {
+        if (!current || current.type === 'seed') return;
+        const result = publishedHistory.add(current);
+        historyView = 'device';
+        renderRecent();
+        showToast(result.persisted ? '已加入本机记录' : '已加入，但浏览器无法持久保存本机记录');
+      });
+      window.addEventListener('storage', (event) => {
+        if (event.key === PUBLISHED_HISTORY_KEY || event.key === null) renderRecent();
+      });
       $('closeProjection').addEventListener('click', closeProjection);
       $('projectionCamera').addEventListener('click', startProjectionCamera);
       $('projection3d').addEventListener('click', () => setStreet3DMode(!street3dActive));
@@ -2292,6 +2357,8 @@
           showToast('无法连接声音服务，请确认后端已经启动');
         }
         initMap();
+        updateCount();
+        renderRecent();
       }
 
       bootstrap();

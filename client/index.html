@@ -67,6 +67,7 @@
             <div class="panel-heading"><span class="eyebrow">NOW LISTENING</span><span id="playerTime">00:00</span></div>
             <div class="player-title" id="playerTitle">还没有选择声音</div>
             <div class="player-meta" id="playerMeta">点击地图上的光点</div>
+            <button class="history-save" id="saveToHistory" type="button" hidden>加入本机记录</button>
             <div class="waveform" id="waveform" aria-hidden="true"></div>
             <div class="player-footer">
               <div class="player-controls">
@@ -80,8 +81,13 @@
           </section>
 
           <section class="panel recent-panel">
-            <div class="panel-heading"><span class="eyebrow">RECENT TRACES</span><span id="recentCount">0</span></div>
-            <div class="recent-list" id="recentList"></div>
+            <div class="panel-heading"><span class="eyebrow">YOUR TRACES / 记录</span><span id="recentCount">0</span></div>
+            <div class="history-tabs" role="tablist" aria-label="记录分类">
+              <button type="button" id="deviceHistoryTab" role="tab" aria-selected="true" aria-controls="recentList">本机记录</button>
+              <button type="button" id="latestHistoryTab" role="tab" aria-selected="false" aria-controls="recentList">最新记录</button>
+            </div>
+            <p class="history-note" id="historyNote">发布的记录会保存在当前浏览器和网址。</p>
+            <div class="recent-list" id="recentList" role="tabpanel" aria-labelledby="deviceHistoryTab"></div>
           </section>
 
           <div class="tip-panel"><strong>小提示</strong><br />音频、视频和图片会上传到你的 SoundTrace 服务端。录制需要麦克风/摄像头权限，建议使用 Chrome 或 Edge。</div>
