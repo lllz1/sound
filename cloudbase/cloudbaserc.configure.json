@@ -1,0 +1,13 @@
+{
+  "envId": "fresh-salamander-d5e3n8i7cbe7352",
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "soundtrace-api",
+      "envVariables": {
+        "SOUNDTRACE_STORE_KEY": "{{env.SOUNDTRACE_STORE_KEY}}",
+        "SOUNDTRACE_CLOUDBASE_ENV": "fresh-salamander-d5e3n8i7cbe7352"
+      }
+    }
+  ]
+}

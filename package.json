@@ -9,6 +9,7 @@
     "dev:server": "node --watch server/index.js",
     "dev:client": "vite --config client/vite.config.js",
     "build": "vite build --config client/vite.config.js",
+    "build:cloudbase": "vite build --config cloudbase/client/vite.config.js",
     "test": "node --test",
     "start": "node server/index.js",
     "preview": "npm run build && npm start"

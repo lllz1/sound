@@ -1,0 +1,14 @@
+{
+  "envId": "fresh-salamander-d5e3n8i7cbe7352",
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "soundtrace-api",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "installDependency": false
+    }
+  ]
+}
