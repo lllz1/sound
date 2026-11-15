@@ -1,3 +1,5 @@
+      import L from 'leaflet'
+      import 'leaflet/dist/leaflet.css'
       import * as maplibregl from 'maplibre-gl'
       import 'maplibre-gl/dist/maplibre-gl.css'
       import { STREET_CAMERA_PRESETS, destinationPoint, nextStreetCamera, streetWalkAction, verticalFieldOfView } from './street3d-camera.js'
@@ -124,7 +126,7 @@
       }
 
       function initMap() {
-        if (!window.L) {
+        if (!L || !L.map) {
           $('map').innerHTML = '<div class="map-fallback">地图资源加载失败，请检查网络后刷新。</div>';
           return;
         }
@@ -1424,12 +1426,14 @@
 
       function markerIcon(trace) {
         const mediaType = trace.mediaType || 'audio';
-        if (mediaType !== 'audio') {
-          const glyph = mediaType === 'video' ? '▶' : '◧';
-          return L.divIcon({ className: 'sound-marker', html: `<div class="pin pin-media pin-${mediaType}" data-id="${escapeHtml(trace.id)}"><span class="pin-ring"></span><span class="pin-core"></span><span class="pin-glyph">${glyph}</span></div>`, iconSize: [40, 40], iconAnchor: [20, 20] });
-        }
-        const bars = (trace.peaks || []).slice(0, 5).map((peak) => `<span class="pin-bar" style="height:${Math.round(5 + peak * 13)}px"></span>`).join('');
-        return L.divIcon({ className: 'sound-marker', html: `<div class="pin" data-id="${escapeHtml(trace.id)}"><span class="pin-ring"></span><span class="pin-core"></span><span class="pin-bars">${bars}</span></div>`, iconSize: [40, 40], iconAnchor: [20, 20] });
+        const icons = {
+          audio: '<path d="M5 10v4m4-7v10m4-13v16m4-13v10m4-7v4"/>',
+          image: '<rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8" cy="10" r="1.4"/><path d="m4 17 5-5 3 3 2-2 6 5"/>',
+          video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/>',
+        };
+        const kind = Object.hasOwn(icons, mediaType) ? mediaType : 'audio';
+        const glyph = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[kind]}</svg>`;
+        return L.divIcon({ className: 'sound-marker', html: `<div class="pin pin-${kind}" data-id="${escapeHtml(trace.id)}"><span class="pin-ring"></span><span class="pin-core"></span><span class="pin-glyph">${glyph}</span></div>`, iconSize: [40, 46], iconAnchor: [20, 44] });
       }
 
       function addTraceMarker(trace) {
@@ -2034,7 +2038,7 @@
         const draw = () => {
           liveAnalyser.getByteTimeDomainData(data);
           ctx.clearRect(0, 0, width, height);
-          ctx.strokeStyle = 'rgba(126, 240, 210, 0.85)';
+          ctx.strokeStyle = 'rgba(173, 93, 58, 0.9)';
           ctx.lineWidth = 2;
           ctx.beginPath();
           const slice = width / data.length;
@@ -2053,7 +2057,7 @@
         const canvas = $('liveWave');
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'rgba(126, 240, 210, 0.2)';
+        ctx.strokeStyle = 'rgba(173, 93, 58, 0.28)';
         ctx.beginPath();
         ctx.moveTo(0, canvas.height / 2);
         ctx.lineTo(canvas.width, canvas.height / 2);
@@ -2166,6 +2170,17 @@
       }
 
       $('recordBtn').addEventListener('click', () => openRecord(currentMapFocus()));
+      document.querySelectorAll('[data-quick-record]').forEach((button) => {
+        button.addEventListener('click', () => {
+          openRecord(currentMapFocus());
+          setRecordMediaType(button.dataset.quickRecord);
+        });
+      });
+      $('mapNav').addEventListener('click', () => {
+        $('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('map').focus({ preventScroll: true });
+      });
+      $('navProjection').addEventListener('click', openProjection);
       $('demoBtn').addEventListener('click', () => {
         if (!allTraces.length) return showToast('地图上还没有声音节点');
         selectTrace(allTraces[0]);

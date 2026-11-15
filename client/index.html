@@ -3,13 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#070b12" />
+    <meta name="theme-color" content="#454a32" />
     <title>声迹 · Sound Trace</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
     <link rel="stylesheet" href="/src/styles.css">
+    <link rel="stylesheet" href="/src/journal.css">
   </head>
   <body>
     <div class="app">
@@ -22,66 +19,60 @@
           </span>
           <span class="brand-text"><strong>声迹</strong><small>SOUND TRACE</small></span>
         </a>
-        <div class="top-status"><span class="status-dot" id="statusDot"></span><span id="statusText">等待一段声音</span></div>
-        <button class="ghost-btn" id="helpBtn">怎么玩</button>
+        <nav class="rail-nav" aria-label="快捷操作">
+          <button class="rail-btn is-active" id="mapNav" type="button" aria-label="查看地图" title="查看地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15" /></svg><span>地图</span></button>
+          <button class="rail-btn" type="button" data-quick-record="audio" aria-label="记录声音" title="记录声音"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8"/></svg><span>音频</span></button>
+          <button class="rail-btn" type="button" data-quick-record="image" aria-label="记录图片" title="记录图片"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8" cy="10" r="1.3"/><path d="m4 17 5-5 3 3 2-2 6 5"/></svg><span>图片</span></button>
+          <button class="rail-btn" type="button" data-quick-record="video" aria-label="记录视频" title="记录视频"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></svg><span>视频</span></button>
+          <button class="rail-btn" id="navProjection" type="button" aria-label="现场投影" title="现场投影"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4m-4 0h8"/></svg><span>投影</span></button>
+        </nav>
+        <div class="rail-bottom"><div class="top-status"><span class="status-dot" id="statusDot"></span><span id="statusText">等待一段声音</span></div><button class="ghost-btn" id="helpBtn">使用帮助</button></div>
       </header>
 
       <main class="workspace">
         <section class="map-panel">
-          <div id="map" aria-label="声音地图"></div>
+          <div id="map" tabindex="-1" aria-label="声音地图"></div>
           <div class="map-shade"></div>
-          <div class="map-heading">
-            <span class="eyebrow">SOUND MAP / FIELD NOTES</span>
-            <h1>听见一座城市<br /><em>留下的痕迹。</em></h1>
-          </div>
           <div class="map-hint">点击地图，留下一段现场</div>
           <div class="map-count"><span id="markerCount">0 段声音</span><span class="zoom-pill" id="zoomLevel">Z15</span></div>
           <div class="zoom-tools" aria-label="地图缩放"><button id="zoomIn" aria-label="放大">+</button><button id="zoomOut" aria-label="缩小">−</button></div>
           <div class="map-tools">
             <form class="search-form" id="searchForm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
-              <input id="searchInput" type="search" placeholder="搜索地点，如：外滩" autocomplete="off" aria-label="搜索地点" />
+              <input id="searchInput" type="search" placeholder="搜索地点，发现身边的声音" autocomplete="off" aria-label="搜索地点" />
               <button type="submit" aria-label="搜索">↵</button>
             </form>
             <div class="search-results" id="searchResults" hidden></div>
             <button class="locate-btn" id="locateBtn" title="使用浏览器定位到当前位置">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.5" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
-              <span id="locateLabel">定位到我</span>
+              <span id="locateLabel">定位</span>
             </button>
           </div>
         </section>
 
         <aside class="sidebar">
-          <section class="panel hero-panel">
-            <span class="eyebrow">FIELD RECORDING / 01</span>
-            <h2>声音也会记得<br />它发生在哪里。</h2>
-            <p>录下 30 秒的声音或视频，或拍一张现场照片，让它落在城市的地图上。别人路过时，就能听见、看见你留下的那一刻。</p>
-            <div class="hero-actions">
-              <button class="primary-btn" id="recordBtn">开始记录 <span aria-hidden="true">↗</span></button>
-              <button class="secondary-btn" id="demoBtn">听一段种子声音</button>
-              <button class="secondary-btn" id="projectBtn">现场投影</button>
+          <section class="panel player-panel">
+            <div class="cover-art" aria-label="湖畔风景示意图"><span>FIELD NOTES <i></i> 记录生活的声音</span></div>
+            <div class="player-label"><span class="eyebrow">正在播放 · NOW LISTENING</span><span id="playerKind">选择一条记录</span></div>
+            <div class="player-title" id="playerTitle">还没有选择声音</div>
+            <div class="player-meta" id="playerMeta">点击地图上的标记，发现一段故事</div>
+            <button class="history-save" id="saveToHistory" type="button" hidden>加入本机记录</button>
+            <div class="player-track">
+              <button class="round-btn play" id="playBtn" disabled aria-label="播放">▶</button>
+              <div class="waveform" id="waveform" aria-hidden="true"></div>
+              <span class="player-time" id="playerTime">00:00</span>
             </div>
+            <div class="player-footer"><span>留住此刻</span><div class="player-controls"><button class="round-btn" id="cardBtn" disabled aria-label="保存声音明信片" title="保存声音明信片">▣</button><button class="round-btn" id="editBtn" disabled aria-label="编辑声音节点" title="编辑声音节点">✎</button><button class="round-btn" id="deleteBtn" disabled aria-label="删除声音节点" title="删除声音节点">⌫</button></div></div>
           </section>
 
-          <section class="panel player-panel">
-            <div class="panel-heading"><span class="eyebrow">NOW LISTENING</span><span id="playerTime">00:00</span></div>
-            <div class="player-title" id="playerTitle">还没有选择声音</div>
-            <div class="player-meta" id="playerMeta">点击地图上的光点</div>
-            <button class="history-save" id="saveToHistory" type="button" hidden>加入本机记录</button>
-            <div class="waveform" id="waveform" aria-hidden="true"></div>
-            <div class="player-footer">
-              <div class="player-controls">
-                <button class="round-btn play" id="playBtn" disabled aria-label="播放">▶</button>
-                <button class="round-btn" id="cardBtn" disabled aria-label="保存声音明信片" title="保存声音明信片">▣</button>
-                <button class="round-btn" id="editBtn" disabled aria-label="编辑声音节点" title="编辑声音节点">✎</button>
-                <button class="round-btn" id="deleteBtn" disabled aria-label="删除声音节点" title="删除声音节点">⌫</button>
-              </div>
-              <span class="player-time" id="playerKind">LOCAL / SEED</span>
-            </div>
-          </section>
+          <div class="media-shortcuts" aria-label="选择记录类型">
+            <button type="button" data-quick-record="audio"><span>♫</span> 音频</button>
+            <button type="button" data-quick-record="image"><span>▧</span> 图片</button>
+            <button type="button" data-quick-record="video"><span>▸</span> 视频</button>
+          </div>
 
           <section class="panel recent-panel">
-            <div class="panel-heading"><span class="eyebrow">YOUR TRACES / 记录</span><span id="recentCount">0</span></div>
+            <div class="panel-heading"><span class="section-title">我的记录</span><span id="recentCount">0</span></div>
             <div class="history-tabs" role="tablist" aria-label="记录分类">
               <button type="button" id="deviceHistoryTab" role="tab" aria-selected="true" aria-controls="recentList">本机记录</button>
               <button type="button" id="latestHistoryTab" role="tab" aria-selected="false" aria-controls="recentList">最新记录</button>
@@ -89,8 +80,8 @@
             <p class="history-note" id="historyNote">发布的记录会保存在当前浏览器和网址。</p>
             <div class="recent-list" id="recentList" role="tabpanel" aria-labelledby="deviceHistoryTab"></div>
           </section>
-
-          <div class="tip-panel"><strong>小提示</strong><br />音频、视频和图片会上传到你的 SoundTrace 服务端。录制需要麦克风/摄像头权限，建议使用 Chrome 或 Edge。</div>
+          <div class="hero-actions"><button class="primary-btn" id="recordBtn"><span aria-hidden="true">♩</span> 开始记录</button><button class="secondary-btn" id="projectBtn"><span aria-hidden="true">▣</span> 现场投影</button><button class="text-btn" id="demoBtn">听一段示例声音 →</button></div>
+          <p class="sidebar-signoff">声音留在发生的地方 <span>·</span> SOUND TRACE</p>
         </aside>
       </main>
 
@@ -338,7 +329,6 @@
 
     <div class="toast" id="toast" hidden></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
